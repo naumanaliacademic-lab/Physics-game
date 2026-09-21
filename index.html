@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vector Rescue — IB Physics A.1 Kinematics</title>
+<meta name="description" content="A five-zone rescue game that teaches IB DP Physics A.1 Kinematics: describing motion, motion graphs, the equations of motion, projectiles and fluid resistance.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🚀</text></svg>">
+</head>
+<body>
+
+<header id="hud" class="hud" hidden>
+  <button class="hud__home" data-nav="map" title="Mission map">◀ Map</button>
+  <div class="hud__id">
+    <span class="hud__rank" id="hudRank">Cadet</span>
+    <span class="hud__name" id="hudName">Pilot</span>
+  </div>
+  <div class="hud__xpwrap">
+    <div class="hud__xpbar"><div class="hud__xpfill" id="hudXpFill"></div></div>
+    <span class="hud__xptext" id="hudXpText">0 XP</span>
+  </div>
+  <div class="hud__lives" id="hudStars">☆☆☆☆☆</div>
+</header>
+
+<main id="screen" class="screen"></main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Modal used for debriefs, misconception cards and zone results -->
+<div id="modal" class="modal" hidden>
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <div id="modalActions" class="modal__actions"></div>
+  </div>
+</div>
+
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/zone1.js"></script>
+<script src="js/zone2.js"></script>
+<script src="js/zone3.js"></script>
+<script src="js/zone4.js"></script>
+<script src="js/zone5.js"></script>
+<script src="js/finalmission.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
