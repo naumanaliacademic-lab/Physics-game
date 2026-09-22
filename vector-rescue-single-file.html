@@ -1,0 +1,4253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vector Rescue — IB Physics A.1 Kinematics</title>
+<meta name="description" content="A five-zone rescue game that teaches IB DP Physics A.1 Kinematics: describing motion, motion graphs, the equations of motion, projectiles and fluid resistance.">
+<style>
+/* ==========================================================================
+   Vector Rescue — IB Physics A.1 Kinematics
+   Deep-space rescue theme: near-black hull, teal instrumentation, gold alerts.
+   ========================================================================== */
+
+:root {
+  --bg:        #070b14;
+  --bg-2:      #0d1524;
+  --panel:     #111b2e;
+  --panel-2:   #16233b;
+  --line:      #24344f;
+  --ink:       #e8eef8;
+  --ink-dim:   #93a4c0;
+  --ink-faint: #5f7190;
+  --teal:      #2fd6c3;
+  --teal-dark: #17806f;
+  --gold:      #ffc24a;
+  --rose:      #ff6b81;
+  --violet:    #a98bff;
+  --green:     #5ce08a;
+  --radius:    14px;
+  --shadow:    0 10px 30px rgba(0,0,0,.45);
+  --mono:      ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+  --sans:      "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgba(47,214,195,.10), transparent 60%),
+    radial-gradient(900px 500px at 95% 0%, rgba(169,139,255,.10), transparent 60%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .4em; font-weight: 700; letter-spacing: .01em; }
+h1 { font-size: clamp(1.8rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.25rem, 3vw, 1.75rem); }
+h3 { font-size: 1.05rem; }
+p  { margin: 0 0 .8em; }
+a  { color: var(--teal); }
+
+.screen {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 18px 16px 72px;
+}
+
+/* ------------------------------ HUD ------------------------------------ */
+
+.hud {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: rgba(9, 14, 24, .92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.hud__home {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.hud__home:hover { border-color: var(--teal); color: var(--teal); }
+
+.hud__id { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.hud__rank { font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.hud__name { font-size: .9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.hud__xpwrap { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 60px; }
+.hud__xpbar { flex: 1; height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+.hud__xpfill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--teal-dark), var(--teal)); transition: width .45s ease; }
+.hud__xptext { font: 600 .78rem var(--mono); color: var(--ink-dim); white-space: nowrap; }
+
+.hud__lives { font-size: 1rem; letter-spacing: .08em; color: var(--gold); white-space: nowrap; }
+
+/* ------------------------------ Cards ---------------------------------- */
+
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.panel--flush { padding: 0; overflow: hidden; }
+
+.eyebrow {
+  font-size: .7rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--teal);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.muted { color: var(--ink-dim); }
+.small { font-size: .85rem; }
+.mono  { font-family: var(--mono); }
+.center{ text-align: center; }
+
+/* ------------------------------ Buttons -------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 18px;
+  font: 600 .95rem var(--sans);
+  cursor: pointer;
+  transition: transform .08s ease, border-color .15s ease, background .15s ease;
+}
+.btn:hover:not(:disabled) { border-color: var(--teal); background: #1b2c47; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn--primary {
+  background: linear-gradient(180deg, var(--teal), var(--teal-dark));
+  color: #04231f;
+  border-color: transparent;
+  font-weight: 700;
+}
+.btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, #4ce6d4, #1a9384); }
+
+.btn--gold { background: linear-gradient(180deg, var(--gold), #d9932a); color: #241703; border-color: transparent; font-weight: 700; }
+.btn--ghost { background: transparent; }
+.btn--sm { padding: 7px 12px; font-size: .82rem; }
+.btn--wide { width: 100%; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ------------------------------ Title screen --------------------------- */
+
+.title { text-align: center; padding: 6vh 0 2vh; }
+.title__logo {
+  font-size: clamp(2.2rem, 8vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: .04em;
+  background: linear-gradient(92deg, var(--teal), var(--violet) 55%, var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 4px;
+}
+.title__sub { color: var(--ink-dim); font-size: 1.02rem; margin-bottom: 26px; }
+
+.title__card { max-width: 560px; margin: 0 auto; text-align: left; }
+
+.field { display: block; margin-bottom: 14px; }
+.field > span { display: block; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.field input, .field select {
+  width: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: 500 1rem var(--sans);
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+
+/* ------------------------------ Mission map ---------------------------- */
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.zone-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: linear-gradient(160deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent, var(--teal));
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.zone-card:hover:not(:disabled) { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--accent, var(--teal)); }
+.zone-card:disabled { opacity: .5; cursor: not-allowed; }
+
+.zone-card__tag { font: 700 .68rem var(--mono); letter-spacing: .16em; color: var(--accent, var(--teal)); text-transform: uppercase; }
+.zone-card__name { font-size: 1.22rem; font-weight: 700; margin: 4px 0 2px; }
+.zone-card__sub { font-size: .86rem; color: var(--ink-dim); margin-bottom: 10px; }
+.zone-card__skills { font-size: .78rem; color: var(--ink-dim); margin-bottom: 12px; }
+.zone-card__foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.zone-card__stars { color: var(--gold); letter-spacing: .1em; font-size: 1rem; }
+.zone-card__best { font: 600 .76rem var(--mono); color: var(--ink-dim); }
+.zone-card__lock { position: absolute; top: 14px; right: 14px; font-size: 1.1rem; }
+
+/* ------------------------------ Game stage ----------------------------- */
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 820px) { .stage { grid-template-columns: 1fr; } }
+
+.canvas-wrap {
+  position: relative;
+  background: #050a12;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+canvas { display: block; width: 100%; height: auto; touch-action: manipulation; }
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.readout__cell {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.readout__k { display: block; font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.readout__v { display: block; font: 700 .95rem var(--mono); color: var(--teal); white-space: nowrap; }
+
+/* ------------------------------ Questions ------------------------------ */
+
+.q__stem { font-size: 1.04rem; margin-bottom: 12px; }
+.q__stem code { background: var(--bg); padding: 1px 5px; border-radius: 5px; font-family: var(--mono); }
+
+.opts { display: grid; gap: 9px; }
+.opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: 500 .95rem var(--sans);
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.opt:hover:not(:disabled) { border-color: var(--teal); }
+.opt:disabled { cursor: default; }
+.opt__key {
+  flex: none;
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  background: var(--panel-2);
+  font: 700 .8rem var(--mono);
+  color: var(--ink-dim);
+}
+.opt--right { border-color: var(--green); background: rgba(92,224,138,.10); }
+.opt--right .opt__key { background: var(--green); color: #04240f; }
+.opt--wrong { border-color: var(--rose); background: rgba(255,107,129,.10); }
+.opt--wrong .opt__key { background: var(--rose); color: #2b0509; }
+
+.feedback {
+  margin-top: 12px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: .92rem;
+}
+.feedback--right { border-color: var(--green); }
+.feedback--wrong { border-color: var(--gold); }
+.feedback__title { font-weight: 700; margin-bottom: 4px; }
+.feedback--right .feedback__title { color: var(--green); }
+.feedback--wrong .feedback__title { color: var(--gold); }
+.feedback__work { font-family: var(--mono); font-size: .85rem; color: var(--ink-dim); white-space: pre-wrap; margin-top: 6px; }
+
+.numin {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.numin input {
+  flex: 1 1 130px;
+  background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 13px; font: 600 1rem var(--mono);
+}
+.numin input:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.numin__unit { font: 600 .95rem var(--mono); color: var(--ink-dim); }
+
+/* ------------------------------ Sliders -------------------------------- */
+
+.ctrl { margin-bottom: 14px; }
+.ctrl__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.ctrl__label { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.ctrl__val { font: 700 .95rem var(--mono); color: var(--gold); }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 26px; background: transparent; cursor: pointer; margin: 0;
+}
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; background: var(--panel-2); border-radius: 99px; border: 1px solid var(--line); }
+input[type="range"]::-moz-range-track { height: 6px; background: var(--panel-2); border-radius: 99px; border: 1px solid var(--line); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--teal); border: 2px solid #04231f; margin-top: -8px;
+}
+input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--teal); border: 2px solid #04231f; }
+
+/* ------------------------------ Misc ----------------------------------- */
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.chip {
+  font: 600 .74rem var(--mono);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  border-radius: 99px;
+  padding: 4px 10px;
+}
+.chip--on { border-color: var(--teal); color: var(--teal); }
+.chip--gold { border-color: var(--gold); color: var(--gold); }
+
+.progress-dots { display: flex; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); }
+.dot--done { background: var(--teal); border-color: var(--teal); }
+.dot--miss { background: var(--rose); border-color: var(--rose); }
+.dot--now  { box-shadow: 0 0 0 3px rgba(47,214,195,.25); }
+
+table.data { width: 100%; border-collapse: collapse; font-size: .9rem; }
+table.data th, table.data td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); }
+table.data th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; }
+table.data td.num { font-family: var(--mono); }
+
+ul.tight { margin: 0 0 .8em; padding-left: 1.1em; }
+ul.tight li { margin-bottom: .3em; }
+
+/* ------------------------------ Toast ---------------------------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 18px);
+  background: var(--panel-2);
+  border: 1px solid var(--teal);
+  color: var(--ink);
+  padding: 10px 18px;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: .92rem;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 60;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast--on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ------------------------------ Modal ---------------------------------- */
+
+.modal {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(4, 7, 13, .78);
+  display: grid; place-items: center;
+  padding: 18px;
+  backdrop-filter: blur(4px);
+}
+.modal[hidden] { display: none; }
+.modal__box {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.modal__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+.stars-big { font-size: 2rem; color: var(--gold); letter-spacing: .12em; text-align: center; margin: 6px 0 14px; }
+
+/* ------------------------------ Badges --------------------------------- */
+
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.badge {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-size: .82rem;
+}
+.badge--on { border-color: var(--gold); }
+.badge__icon { font-size: 1.3rem; display: block; margin-bottom: 2px; filter: grayscale(1) opacity(.45); }
+.badge--on .badge__icon { filter: none; }
+.badge__name { display: block; font-weight: 700; line-height: 1.25; }
+.badge__desc { display: block; color: var(--ink-dim); font-size: .75rem; margin-top: 2px; }
+
+/* ------------------------------ Helpers -------------------------------- */
+
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mt { margin-top: 14px; }
+.mb0 { margin-bottom: 0; }
+.nowrap { white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🚀</text></svg>">
+</head>
+<body>
+
+<header id="hud" class="hud" hidden>
+  <button class="hud__home" data-nav="map" title="Mission map">◀ Map</button>
+  <div class="hud__id">
+    <span class="hud__rank" id="hudRank">Cadet</span>
+    <span class="hud__name" id="hudName">Pilot</span>
+  </div>
+  <div class="hud__xpwrap">
+    <div class="hud__xpbar"><div class="hud__xpfill" id="hudXpFill"></div></div>
+    <span class="hud__xptext" id="hudXpText">0 XP</span>
+  </div>
+  <div class="hud__lives" id="hudStars">☆☆☆☆☆</div>
+</header>
+
+<main id="screen" class="screen"></main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Modal used for debriefs, misconception cards and zone results -->
+<div id="modal" class="modal" hidden>
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <div id="modalActions" class="modal__actions"></div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   engine.js — save state, progression, routing.
+   Everything the player earns lives in one object persisted to localStorage.
+   ========================================================================== */
+
+const Game = (() => {
+  'use strict';
+
+  const SAVE_KEY = 'vector-rescue.save.v1';
+
+  const RANKS = [
+    { xp: 0,    name: 'Cadet' },
+    { xp: 350,  name: 'Pilot 3rd Class' },
+    { xp: 800,  name: 'Pilot 2nd Class' },
+    { xp: 1400, name: 'Pilot 1st Class' },
+    { xp: 2100, name: 'Flight Officer' },
+    { xp: 3000, name: 'Rescue Commander' }
+  ];
+
+  /* Badges are awarded for beating a named misconception from the decks,
+     so a student can see exactly which wrong idea they have retired. */
+  const BADGES = {
+    pathfinder:   { icon: '🧭', name: 'Pathfinder',    desc: 'Distance is path length; displacement is the change in position.' },
+    signmaster:   { icon: '±',  name: 'Sign Master',   desc: 'Negative acceleration means "towards negative", not "slowing down".' },
+    gradient:     { icon: '📈', name: 'Gradient Eye',  desc: 'Read velocity from a tangent, not from value ÷ time.' },
+    areahunter:   { icon: '🔷', name: 'Area Hunter',   desc: 'Area under v–t is displacement; below the axis counts negative.' },
+    chooser:      { icon: '🎛️', name: 'Equation Picker', desc: 'Pick the suvat equation that leaves out the quantity you do not have.' },
+    topofflight:  { icon: '🔝', name: 'Top of Flight', desc: 'At the highest point v = 0 but a = g downwards.' },
+    independence: { icon: '🎯', name: 'Independence',  desc: 'Horizontal and vertical motion are independent.' },
+    terminal:     { icon: '🪂', name: 'Terminal',      desc: 'At terminal speed forces balance — the resultant force is zero.' },
+    dragaware:    { icon: '🌬️', name: 'Drag Aware',    desc: 'With drag: lower peak, shorter range, asymmetric path.' },
+    commander:    { icon: '🎖️', name: 'Commander',     desc: 'Cleared Mission Alpha, the full A.1 rescue exam.' }
+  };
+
+  const defaultSave = () => ({
+    name: 'Pilot',
+    xp: 0,
+    zones: {},          // id -> { stars, best, cleared }
+    badges: {},         // id -> true
+    seen: {},           // misconception cards already shown
+    totalCorrect: 0,
+    totalAnswered: 0
+  });
+
+  let save = defaultSave();
+
+  /* ------------------------------ persistence --------------------------- */
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) save = Object.assign(defaultSave(), JSON.parse(raw));
+    } catch (err) {
+      // Private browsing or blocked storage: play on with an in-memory save.
+      save = defaultSave();
+    }
+    return save;
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch (err) { /* storage unavailable — progress stays for this session */ }
+  }
+
+  function reset() {
+    save = defaultSave();
+    persist();
+  }
+
+  /* ------------------------------ progression --------------------------- */
+
+  function rank() {
+    let r = RANKS[0];
+    for (const candidate of RANKS) if (save.xp >= candidate.xp) r = candidate;
+    return r;
+  }
+
+  function nextRank() {
+    return RANKS.find(r => r.xp > save.xp) || null;
+  }
+
+  function addXp(amount) {
+    const before = rank().name;
+    save.xp = Math.max(0, save.xp + amount);
+    persist();
+    const after = rank().name;
+    if (after !== before) UI.toast(`Promoted to ${after}!`, 2600);
+    UI.syncHud();
+    return save.xp;
+  }
+
+  function awardBadge(id) {
+    if (!BADGES[id] || save.badges[id]) return false;
+    save.badges[id] = true;
+    persist();
+    UI.toast(`${BADGES[id].icon} Badge unlocked — ${BADGES[id].name}`, 3000);
+    return true;
+  }
+
+  function recordAnswer(correct) {
+    save.totalAnswered++;
+    if (correct) save.totalCorrect++;
+    persist();
+  }
+
+  /** Stars are a 0–5 rating of a zone run; only an improvement is stored. */
+  function finishZone(zoneId, { stars, score }) {
+    const prev = save.zones[zoneId] || { stars: 0, best: 0, cleared: false };
+    save.zones[zoneId] = {
+      stars: Math.max(prev.stars, stars),
+      best: Math.max(prev.best, score),
+      cleared: prev.cleared || stars > 0
+    };
+    persist();
+    UI.syncHud();
+    return save.zones[zoneId];
+  }
+
+  function zoneState(zoneId) {
+    return save.zones[zoneId] || { stars: 0, best: 0, cleared: false };
+  }
+
+  function totalStars() {
+    return Object.values(save.zones).reduce((sum, z) => sum + (z.stars || 0), 0);
+  }
+
+  /** A zone unlocks when the one before it has been cleared. */
+  function isUnlocked(zone, allZones) {
+    if (!zone.requires) return true;
+    return zone.requires.every(id => zoneState(id).cleared);
+  }
+
+  /* ------------------------------ routing ------------------------------- */
+
+  const routes = {};
+  let current = null;
+
+  function route(name, renderFn) { routes[name] = renderFn; }
+
+  function go(name, params) {
+    const render = routes[name];
+    if (!render) { console.warn('No route:', name); return; }
+    current = name;
+    if (typeof Zone !== 'undefined') Zone.stopAll();
+    const screen = document.getElementById('screen');
+    screen.innerHTML = '';
+    document.getElementById('hud').hidden = (name === 'title');
+    window.scrollTo(0, 0);
+    render(screen, params || {});
+    UI.syncHud();
+  }
+
+  return {
+    BADGES, RANKS,
+    load, persist, reset,
+    get save() { return save; },
+    rank, nextRank, addXp, awardBadge, recordAnswer,
+    finishZone, zoneState, totalStars, isUnlocked,
+    route, go,
+    get current() { return current; }
+  };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   ui.js — DOM helpers, HUD sync, toasts, modals and the shared question card.
+   Every zone asks questions through UI.ask() so feedback is consistent.
+   ========================================================================== */
+
+const UI = (() => {
+  'use strict';
+
+  /* ------------------------------ DOM helpers --------------------------- */
+
+  /** el('div.panel', {id:'x'}, child, 'text') — tiny hyperscript. */
+  function el(spec, attrs, ...children) {
+    const [tagPart, ...classes] = String(spec).split('.');
+    const node = document.createElement(tagPart || 'div');
+    if (classes.length) node.className = classes.join(' ');
+    if (attrs && typeof attrs === 'object' && !(attrs instanceof Node) && !Array.isArray(attrs)) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v === null || v === undefined || v === false) continue;
+        if (k === 'html') node.innerHTML = v;
+        else if (k === 'text') node.textContent = v;
+        else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v);
+        else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+        else node.setAttribute(k, v === true ? '' : v);
+      }
+    } else if (attrs !== undefined && attrs !== null) {
+      children.unshift(attrs);
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
+    return node;
+  }
+
+  const $ = (sel, root) => (root || document).querySelector(sel);
+
+  /* ------------------------------ HUD ----------------------------------- */
+
+  function syncHud() {
+    const rank = Game.rank();
+    const next = Game.nextRank();
+    $('#hudRank').textContent = rank.name;
+    $('#hudName').textContent = Game.save.name;
+    $('#hudXpText').textContent = `${Game.save.xp} XP`;
+    const floor = rank.xp;
+    const ceil = next ? next.xp : rank.xp + 1;
+    const pct = next ? ((Game.save.xp - floor) / (ceil - floor)) * 100 : 100;
+    $('#hudXpFill').style.width = `${Math.max(3, Math.min(100, pct))}%`;
+    $('#hudStars').textContent = stars(Math.min(5, Math.round(Game.totalStars() / 5)), 5);
+  }
+
+  function stars(filled, total) {
+    return '★'.repeat(Math.max(0, filled)) + '☆'.repeat(Math.max(0, total - filled));
+  }
+
+  /* ------------------------------ Toast --------------------------------- */
+
+  let toastTimer = null;
+  function toast(message, ms) {
+    const node = $('#toast');
+    node.textContent = message;
+    node.classList.add('toast--on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => node.classList.remove('toast--on'), ms || 1800);
+  }
+
+  /* ------------------------------ Modal --------------------------------- */
+
+  /** actions: [{ label, primary, onClick }] — onClick runs after the close. */
+  function modal(title, bodyNode, actions) {
+    const box = $('#modal');
+    $('#modalTitle').textContent = title;
+    const body = $('#modalBody');
+    body.innerHTML = '';
+    body.append(bodyNode instanceof Node ? bodyNode : el('p', { html: String(bodyNode) }));
+    const bar = $('#modalActions');
+    bar.innerHTML = '';
+    (actions || [{ label: 'Continue', primary: true }]).forEach(a => {
+      bar.append(el('button.btn' + (a.primary ? '.btn--primary' : ''), {
+        type: 'button',
+        onClick: () => { closeModal(); if (a.onClick) a.onClick(); }
+      }, a.label));
+    });
+    box.hidden = false;
+  }
+
+  function closeModal() { $('#modal').hidden = true; }
+
+  /* ------------------------------ Controls ------------------------------ */
+
+  /** A labelled slider that reports its live value. Returns {wrap, input}. */
+  function slider({ label, min, max, step, value, unit, format, onInput }) {
+    const val = el('span.ctrl__val');
+    const input = el('input', { type: 'range', min, max, step, value });
+    const show = () => {
+      const v = parseFloat(input.value);
+      val.textContent = (format ? format(v) : v) + (unit ? ` ${unit}` : '');
+    };
+    input.addEventListener('input', () => { show(); if (onInput) onInput(parseFloat(input.value)); });
+    show();
+    const wrap = el('div.ctrl', null,
+      el('div.ctrl__head', null, el('span.ctrl__label', null, label), val),
+      input
+    );
+    return { wrap, input, get value() { return parseFloat(input.value); } };
+  }
+
+  function readout(cells) {
+    const wrap = el('div.readout');
+    const refs = {};
+    for (const [key, spec] of Object.entries(cells)) {
+      const v = el('span.readout__v', null, spec.value !== undefined ? spec.value : '—');
+      refs[key] = v;
+      wrap.append(el('div.readout__cell', null, el('span.readout__k', null, spec.label), v));
+    }
+    return { wrap, set: (key, text) => { if (refs[key]) refs[key].textContent = text; } };
+  }
+
+  function dots(total, stateFn) {
+    const wrap = el('div.progress-dots');
+    for (let i = 0; i < total; i++) {
+      const s = stateFn ? stateFn(i) : '';
+      wrap.append(el('span.dot' + (s ? '.dot--' + s : '')));
+    }
+    return wrap;
+  }
+
+  /* ------------------------------ Question card -------------------------- */
+
+  /**
+   * Render one question and resolve with { correct, question }.
+   *   mcq: { type:'mcq', stem, options:[{text, why}], answer, work, badge }
+   *   num: { type:'num', stem, answer, unit, tol, work, badge, hint }
+   * `tol` is a relative tolerance (default 2%), with an absolute floor so
+   * answers near zero still work.
+   */
+  function ask(container, q, onDone) {
+    container.innerHTML = '';
+    const card = el('div');
+    card.append(el('div.q__stem', { html: q.stem }));
+
+    const feedbackSlot = el('div');
+    let answered = false;
+
+    const settle = (correct, chosenWhy) => {
+      if (answered) return;
+      answered = true;
+      Game.recordAnswer(correct);
+      if (correct && q.badge) Game.awardBadge(q.badge);
+
+      const fb = el('div.feedback' + (correct ? '.feedback--right' : '.feedback--wrong'));
+      fb.append(el('div.feedback__title', null, correct ? '✓ Correct' : '✗ Not quite'));
+      if (!correct && chosenWhy) fb.append(el('div', { html: chosenWhy }));
+      if (q.work) fb.append(el('div.feedback__work', null, q.work));
+      feedbackSlot.append(fb);
+
+      const next = el('button.btn.btn--primary.mt', {
+        type: 'button',
+        onClick: () => onDone({ correct, question: q })
+      }, 'Continue ▶');
+      feedbackSlot.append(next);
+      next.focus();
+    };
+
+    if (q.type === 'num') {
+      const input = el('input', {
+        type: 'text', inputmode: 'decimal', placeholder: 'your answer',
+        'aria-label': 'Answer'
+      });
+      const check = () => {
+        const given = parseFloat(String(input.value).replace(/[^0-9eE+\-.]/g, ''));
+        if (!isFinite(given)) { toast('Type a number first'); return; }
+        const tol = q.tol !== undefined ? q.tol : 0.02;
+        const slack = Math.max(Math.abs(q.answer) * tol, Math.abs(q.answer) * 0.005 + 1e-9, q.absTol || 0);
+        const correct = Math.abs(given - q.answer) <= slack;
+        input.disabled = true; goBtn.disabled = true;
+        settle(correct, `The accepted answer is <strong>${Physics.sig(q.answer, 3)} ${q.unit || ''}</strong>.`);
+      };
+      const goBtn = el('button.btn.btn--primary', { type: 'button', onClick: check }, 'Check');
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+      card.append(el('div.numin', null, input, q.unit ? el('span.numin__unit', null, q.unit) : null, goBtn));
+      if (q.hint) card.append(el('p.small.muted.mt', { html: `Hint: ${q.hint}` }));
+      setTimeout(() => input.focus(), 30);
+    } else {
+      const opts = el('div.opts');
+      q.options.forEach((opt, i) => {
+        const btn = el('button.opt', { type: 'button' },
+          el('span.opt__key', null, 'ABCD'[i] || String(i + 1)),
+          el('span', { html: opt.text })
+        );
+        btn.addEventListener('click', () => {
+          if (answered) return;
+          const correct = i === q.answer;
+          [...opts.children].forEach((child, j) => {
+            child.disabled = true;
+            if (j === q.answer) child.classList.add('opt--right');
+            else if (j === i) child.classList.add('opt--wrong');
+          });
+          settle(correct, opt.why);
+        });
+        opts.append(btn);
+      });
+      card.append(opts);
+    }
+
+    card.append(feedbackSlot);
+    container.append(card);
+  }
+
+  /* ------------------------------ Canvas -------------------------------- */
+
+  /**
+   * A crisp canvas sized in CSS pixels; the context is pre-scaled for the
+   * device pixel ratio so 1 unit of drawing = 1 CSS pixel.
+   */
+  function canvas(width, height) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cnv = el('canvas', { width: Math.round(width * dpr), height: Math.round(height * dpr) });
+    cnv.style.aspectRatio = `${width} / ${height}`;
+    const ctx = cnv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    cnv.logicalWidth = width;
+    cnv.logicalHeight = height;
+    return { cnv, ctx, w: width, h: height };
+  }
+
+  return { el, $, syncHud, stars, toast, modal, closeModal, slider, readout, dots, ask, canvas };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   physics.js — the one place the physics lives.
+   Every zone calls into here, so a student who checks a number against the
+   deck gets the same answer the game used.  g = 9.81 m s⁻² throughout,
+   as stated on slide 1 of both decks.
+   ========================================================================== */
+
+const Physics = (() => {
+  'use strict';
+
+  const G = 9.81;
+
+  /* ------------------------------ formatting ---------------------------- */
+
+  /** Round to n significant figures and print without trailing noise. */
+  function sig(x, n) {
+    if (!isFinite(x)) return '—';
+    if (x === 0) return '0';
+    const digits = n || 3;
+    const rounded = Number(x.toPrecision(digits));
+    if (Math.abs(rounded) >= 1e5 || (Math.abs(rounded) < 1e-3 && rounded !== 0)) {
+      return rounded.toExponential(digits - 1).replace('e', ' × 10^');
+    }
+    return String(rounded);
+  }
+
+  const fix = (x, n) => (isFinite(x) ? x.toFixed(n === undefined ? 1 : n) : '—');
+  const rad = deg => (deg * Math.PI) / 180;
+  const deg = r => (r * 180) / Math.PI;
+
+  /* ------------------------------ vectors ------------------------------- */
+
+  const mag = (x, y) => Math.hypot(x, y);
+
+  /** Direction of (x, y) in degrees above the +x axis, in (-180, 180]. */
+  const dir = (x, y) => deg(Math.atan2(y, x));
+
+  /** Resolve a vector given magnitude and angle above the horizontal. */
+  const resolve = (m, angleDeg) => ({ x: m * Math.cos(rad(angleDeg)), y: m * Math.sin(rad(angleDeg)) });
+
+  /* ------------------------------ suvat --------------------------------- */
+
+  /* The four equations of motion, exactly as the data booklet lists them.
+     Each takes the three quantities it needs and returns the fourth. */
+  const suvat = {
+    // s = ((u + v) / 2) t        — the one with no a
+    sFromUVt: (u, v, t) => ((u + v) / 2) * t,
+    // v = u + at                 — the one with no s
+    vFromUAt: (u, a, t) => u + a * t,
+    // s = ut + ½at²              — the one with no v
+    sFromUAt: (u, a, t) => u * t + 0.5 * a * t * t,
+    // v² = u² + 2as              — the one with no t
+    vFromUAs: (u, a, s) => {
+      const vsq = u * u + 2 * a * s;
+      return vsq < 0 ? NaN : Math.sqrt(vsq);
+    }
+  };
+
+  /**
+   * Positive root of s = ut + ½at² for t, i.e. the time to reach
+   * displacement s starting at u with uniform acceleration a.
+   * Returns NaN when the displacement is never reached.
+   */
+  function timeToDisplacement(s, u, a) {
+    if (Math.abs(a) < 1e-12) return Math.abs(u) < 1e-12 ? NaN : s / u;
+    const disc = u * u + 2 * a * s;
+    if (disc < 0) return NaN;
+    const root = Math.sqrt(disc);
+    const t1 = (-u + root) / a;
+    const t2 = (-u - root) / a;
+    const valid = [t1, t2].filter(t => t > 1e-9).sort((p, q) => p - q);
+    return valid.length ? valid[0] : NaN;
+  }
+
+  /* ------------------------------ projectiles (no drag) ------------------ */
+
+  /**
+   * Analytic projectile launched at speed u, angle θ above the horizontal,
+   * from height h above the landing plane.  Up is positive.
+   */
+  function projectile(u, angleDeg, h) {
+    const height = h || 0;
+    const { x: ux, y: uy } = resolve(u, angleDeg);
+    // Landing: vertical displacement of -height relative to launch.
+    const tFlight = timeToDisplacement(-height, uy, -G);
+    const apex = uy > 0 ? (uy * uy) / (2 * G) : 0;       // above the launch point
+    return {
+      ux, uy,
+      timeOfFlight: tFlight,
+      range: ux * tFlight,
+      maxHeight: height + apex,        // above the ground
+      apexAboveLaunch: apex,
+      timeToApex: uy > 0 ? uy / G : 0,
+      landingSpeed: Math.hypot(ux, uy + -G * tFlight),
+      landingAngle: dir(ux, uy - G * tFlight),
+      at(t) {
+        return {
+          x: ux * t,
+          y: height + uy * t - 0.5 * G * t * t,
+          vx: ux,
+          vy: uy - G * t
+        };
+      }
+    };
+  }
+
+  /** Sampled flight path, for drawing. */
+  function trajectory(u, angleDeg, h, samples) {
+    const p = projectile(u, angleDeg, h);
+    const n = samples || 90;
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const s = p.at((p.timeOfFlight * i) / n);
+      pts.push({ x: s.x, y: s.y, t: (p.timeOfFlight * i) / n, vx: s.vx, vy: s.vy });
+    }
+    return { path: pts, summary: p };
+  }
+
+  /* ------------------------------ fluid resistance ----------------------- */
+
+  /*
+   * Drag is modelled as quadratic in speed and opposite to the velocity:
+   *     F_drag = -k |v| v,        a_drag = -(k/m) |v| v
+   * Rather than ask a student for k, the model is parameterised by the
+   * terminal speed vT, because at terminal speed drag balances weight:
+   *     k/m = g / vT²
+   * so a heavier or more streamlined body simply has a larger vT — exactly
+   * the story the deck tells in S5.
+   */
+
+  function dragCoefficient(terminalSpeed) {
+    return terminalSpeed > 0 ? G / (terminalSpeed * terminalSpeed) : 0;
+  }
+
+  /** Acceleration of a body at velocity (vx, vy) with drag parameter c = k/m. */
+  function accelWithDrag(vx, vy, c) {
+    const speed = Math.hypot(vx, vy);
+    return { ax: -c * speed * vx, ay: -G - c * speed * vy };
+  }
+
+  /** One RK4 step of the 2D drag equations. Up is positive. */
+  function stepDrag(state, dt, c) {
+    const deriv = s => {
+      const a = accelWithDrag(s.vx, s.vy, c);
+      return { x: s.vx, y: s.vy, vx: a.ax, vy: a.ay };
+    };
+    const add = (s, d, f) => ({
+      x: s.x + d.x * f, y: s.y + d.y * f, vx: s.vx + d.vx * f, vy: s.vy + d.vy * f
+    });
+    const k1 = deriv(state);
+    const k2 = deriv(add(state, k1, dt / 2));
+    const k3 = deriv(add(state, k2, dt / 2));
+    const k4 = deriv(add(state, k3, dt));
+    return {
+      x:  state.x  + (dt / 6) * (k1.x  + 2 * k2.x  + 2 * k3.x  + k4.x),
+      y:  state.y  + (dt / 6) * (k1.y  + 2 * k2.y  + 2 * k3.y  + k4.y),
+      vx: state.vx + (dt / 6) * (k1.vx + 2 * k2.vx + 2 * k3.vx + k4.vx),
+      vy: state.vy + (dt / 6) * (k1.vy + 2 * k2.vy + 2 * k3.vy + k4.vy)
+    };
+  }
+
+  /**
+   * Full flight with drag, from launch to the moment y returns to 0.
+   * terminalSpeed = 0 reproduces the vacuum case exactly.
+   */
+  function dragFlight(u, angleDeg, h, terminalSpeed, dt) {
+    const c = dragCoefficient(terminalSpeed);
+    const { x: ux, y: uy } = resolve(u, angleDeg);
+    const step = dt || 0.002;
+    let s = { x: 0, y: h || 0, vx: ux, vy: uy };
+    const path = [{ x: s.x, y: s.y, t: 0, vx: s.vx, vy: s.vy }];
+    let t = 0, maxHeight = s.y, guard = 0;
+
+    while (guard++ < 200000) {
+      const next = stepDrag(s, step, c);
+      t += step;
+      if (next.y > maxHeight) maxHeight = next.y;
+      if (next.y <= 0 && s.y > 0) {
+        // Linear interpolation onto the ground for a clean landing point.
+        const f = s.y / (s.y - next.y);
+        const land = {
+          x: s.x + (next.x - s.x) * f,
+          y: 0,
+          t: t - step + step * f,
+          vx: s.vx + (next.vx - s.vx) * f,
+          vy: s.vy + (next.vy - s.vy) * f
+        };
+        path.push(land);
+        return {
+          path,
+          range: land.x,
+          timeOfFlight: land.t,
+          maxHeight,
+          landingSpeed: Math.hypot(land.vx, land.vy),
+          landingAngle: dir(land.vx, land.vy)
+        };
+      }
+      s = next;
+      path.push({ x: s.x, y: s.y, t, vx: s.vx, vy: s.vy });
+    }
+    return { path, range: s.x, timeOfFlight: t, maxHeight, landingSpeed: Math.hypot(s.vx, s.vy), landingAngle: dir(s.vx, s.vy) };
+  }
+
+  /* ------------------------------ graph areas ---------------------------- */
+
+  /**
+   * Signed area under a piecewise-linear velocity–time graph, i.e. the
+   * displacement.  Points are [{t, v}, ...] in increasing t.
+   */
+  function areaUnder(points) {
+    let area = 0;
+    for (let i = 1; i < points.length; i++) {
+      const dt = points[i].t - points[i - 1].t;
+      area += ((points[i].v + points[i - 1].v) / 2) * dt;
+    }
+    return area;
+  }
+
+  /** Total path length, i.e. the distance: areas below the axis count positive. */
+  function distanceUnder(points) {
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+      const [t0, v0] = [points[i - 1].t, points[i - 1].v];
+      const [t1, v1] = [points[i].t, points[i].v];
+      const dt = t1 - t0;
+      if (dt <= 0) continue;
+      if (v0 * v1 >= 0) {
+        total += Math.abs(((v0 + v1) / 2) * dt);
+      } else {
+        // The segment crosses the axis: split it at the zero crossing.
+        const tc = dt * (Math.abs(v0) / (Math.abs(v0) + Math.abs(v1)));
+        total += Math.abs(v0 * tc / 2) + Math.abs(v1 * (dt - tc) / 2);
+      }
+    }
+    return total;
+  }
+
+  return {
+    G, sig, fix, rad, deg, mag, dir, resolve,
+    suvat, timeToDisplacement,
+    projectile, trajectory,
+    dragCoefficient, accelWithDrag, stepDrag, dragFlight,
+    areaUnder, distanceUnder
+  };
+})();
+
+/* ==========================================================================
+   Zone — animation-loop registry so navigating away always stops the physics.
+   ========================================================================== */
+
+const Zone = (() => {
+  'use strict';
+  let handles = [];
+
+  /** Run fn(dtSeconds, elapsedSeconds) each frame until the screen changes. */
+  function loop(fn) {
+    let last = performance.now();
+    let start = last;
+    let alive = true;
+    const tick = now => {
+      if (!alive) return;
+      const dt = Math.min((now - last) / 1000, 0.05);   // clamp after a tab switch
+      last = now;
+      fn(dt, (now - start) / 1000);
+      handle.raf = requestAnimationFrame(tick);
+    };
+    const handle = {
+      raf: requestAnimationFrame(tick),
+      stop() { alive = false; cancelAnimationFrame(this.raf); }
+    };
+    handles.push(handle);
+    return handle;
+  }
+
+  function stopAll() {
+    handles.forEach(h => h.stop());
+    handles = [];
+  }
+
+  return { loop, stopAll };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   questions.js — the question bank, taken from the two A.1 decks.
+   The five HINGE questions and every "common misconception" row appear here,
+   because those are the ideas the decks say to check before moving on.
+   ========================================================================== */
+
+const Questions = (() => {
+  'use strict';
+
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  /** Fisher–Yates, then take n. Leaves the source bank untouched. */
+  function sample(arr, n) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, Math.min(n, copy.length));
+  }
+
+  /* ------------------------------ S1: describing motion ------------------ */
+
+  const s1 = [
+    {
+      type: 'mcq',
+      tag: 'HINGE',
+      badge: 'pathfinder',
+      stem: 'A runner completes one <strong>full lap</strong> of a 400 m track in 80 s. What is her <strong>average velocity</strong>?',
+      options: [
+        { text: 'Zero' },
+        { text: '5.0 m s⁻¹', why: 'That is her average <em>speed</em> — distance ÷ time. Velocity uses displacement.' },
+        { text: '5.0 m s⁻¹ in the direction she faces at the finish', why: 'That uses the direction at one instant, not the average over the whole lap.' },
+        { text: 'It cannot be found without a direction', why: 'Zero displacement gives zero velocity, and zero needs no direction.' }
+      ],
+      answer: 0,
+      work: 'One full lap → she finishes where she started → displacement = 0.\naverage velocity = displacement ÷ time = 0 ÷ 80 = 0'
+    },
+    {
+      type: 'mcq',
+      badge: 'signmaster',
+      stem: 'Take right as positive. A trolley moves <strong>left</strong> and has a <strong>positive</strong> acceleration. Is it speeding up or slowing down?',
+      options: [
+        { text: 'Slowing down' },
+        { text: 'Speeding up', why: 'v is negative and a is positive — opposite signs, so the trolley is slowing.' },
+        { text: 'Moving at constant speed', why: 'A non-zero acceleration always changes the velocity.' },
+        { text: 'It reverses instantly', why: 'It slows first, and only then could it reverse.' }
+      ],
+      answer: 0,
+      work: 'Same signs → speeding up.  Opposite signs → slowing down.\nHere v < 0 and a > 0, so the trolley slows down.'
+    },
+    {
+      type: 'mcq',
+      stem: 'Can the <strong>average speed</strong> of a journey ever be <strong>less than</strong> the magnitude of its average velocity?',
+      options: [
+        { text: 'No — distance ≥ |displacement|, and both are divided by the same time' },
+        { text: 'Yes, if the object turns back on itself', why: 'Turning back makes the distance <em>larger</em>, so the average speed grows, not shrinks.' },
+        { text: 'Yes, on a circular path', why: 'On a circle the distance is far larger than the displacement, so average speed is larger.' },
+        { text: 'Only if the object stops part way', why: 'Stopping adds time to both, and never makes the distance smaller than the displacement.' }
+      ],
+      answer: 0,
+      work: 'distance ≥ |displacement| always.\nThey are equal only for straight-line motion without turning back.'
+    },
+    {
+      type: 'mcq',
+      stem: "A car's speedometer reads 50 km h⁻¹. This reading is:",
+      options: [
+        { text: 'an instantaneous speed' },
+        { text: 'an average speed', why: 'It shows the value at this moment, and it changes as the driver brakes.' },
+        { text: 'an instantaneous velocity', why: 'The dial gives no direction, so it cannot be a velocity.' },
+        { text: 'an average velocity', why: 'No direction and not averaged over the journey.' }
+      ],
+      answer: 0,
+      work: '50 km h⁻¹ = 50 000 ÷ 3600 = 14 m s⁻¹, at this instant, with no direction given.'
+    },
+    {
+      type: 'mcq',
+      badge: 'signmaster',
+      stem: 'A car travels at a <strong>constant speed</strong> around a roundabout. Which statement is correct?',
+      options: [
+        { text: 'Its velocity changes, so it is accelerating' },
+        { text: 'Its velocity is constant, so it is not accelerating', why: 'The direction of travel keeps changing, and velocity includes direction.' },
+        { text: 'Its acceleration is zero because the speed is constant', why: 'Acceleration is the rate of change of <em>velocity</em>, not of speed.' },
+        { text: 'Its displacement is constant', why: 'The car keeps moving, so its position — and its displacement — keeps changing.' }
+      ],
+      answer: 0,
+      work: 'A change of direction at constant speed is still a change of velocity,\nso there is an acceleration (towards the centre).'
+    },
+    {
+      type: 'num',
+      stem: 'A cyclist rides 3.0 km east, then 4.0 km west, in 20 minutes. Calculate the <strong>magnitude of the average velocity</strong>, in m s⁻¹.',
+      answer: 1000 / 1200,
+      unit: 'm s⁻¹',
+      tol: 0.04,
+      hint: 'Net displacement first, then convert km → m and minutes → s.',
+      work: 'Displacement = 3.0 − 4.0 = −1.0 km = 1000 m west\ntime = 20 × 60 = 1200 s\n|average velocity| = 1000 ÷ 1200 = 0.83 m s⁻¹ west'
+    },
+    {
+      type: 'num',
+      stem: 'A car speeds up from 12 m s⁻¹ to 30 m s⁻¹ in 6.0 s. Calculate its <strong>acceleration</strong>.',
+      answer: 3.0,
+      unit: 'm s⁻²',
+      work: 'a = Δv / Δt = (30 − 12) / 6.0 = 3.0 m s⁻²'
+    },
+    {
+      type: 'num',
+      stem: 'Convert <strong>72 km h⁻¹</strong> into m s⁻¹.',
+      answer: 20,
+      unit: 'm s⁻¹',
+      work: '72 × 1000 ÷ 3600 = 20 m s⁻¹'
+    }
+  ];
+
+  /* ------------------------------ S2: motion graphs ---------------------- */
+
+  const s2 = [
+    {
+      type: 'mcq',
+      tag: 'HINGE',
+      badge: 'areahunter',
+      stem: 'A trolley\'s velocity falls steadily from <strong>+6.0 m s⁻¹ at t = 0</strong> to <strong>−6.0 m s⁻¹ at t = 4.0 s</strong>. What is its <strong>displacement</strong> after 4.0 s?',
+      options: [
+        { text: '0' },
+        { text: '12 m', why: 'That is the <em>distance</em> — the two areas added as sizes.' },
+        { text: '24 m', why: 'That treats the graph as a rectangle, 6 × 4.' },
+        { text: '−12 m', why: 'That counts only the area below the axis.' }
+      ],
+      answer: 0,
+      work: 'Above the axis: ½ × 2.0 × 6.0 = +6.0 m\nBelow the axis: ½ × 2.0 × 6.0 = −6.0 m\nDisplacement = +6.0 − 6.0 = 0   (distance = 12 m)'
+    },
+    {
+      type: 'mcq',
+      badge: 'gradient',
+      stem: 'On a <strong>displacement–time</strong> graph, how do you find the <strong>instantaneous velocity</strong> at t = 2.0 s?',
+      options: [
+        { text: 'Draw a tangent at t = 2.0 s and find its gradient' },
+        { text: 'Divide the displacement at 2.0 s by 2.0 s', why: 'That gives the <em>average</em> velocity from the start, not the value at that instant.' },
+        { text: 'Read the value on the y-axis', why: 'The y-value is the displacement, not the velocity.' },
+        { text: 'Find the area under the graph up to 2.0 s', why: 'Area under an s–t graph has units m s, which is not a useful quantity.' }
+      ],
+      answer: 0,
+      work: 'Gradient of a tangent = instantaneous velocity.\nA chord between two points would give the average velocity over that interval.'
+    },
+    {
+      type: 'mcq',
+      badge: 'gradient',
+      stem: 'A <strong>flat, horizontal line</strong> on a <strong>velocity–time</strong> graph at v = 8 m s⁻¹ means the body is:',
+      options: [
+        { text: 'moving at a constant 8 m s⁻¹, with zero acceleration' },
+        { text: 'stopped', why: 'Stopped is a flat line at <em>v = 0</em>. This line sits at 8 m s⁻¹.' },
+        { text: 'accelerating uniformly', why: 'A constant gradient that is not zero would be uniform acceleration; this gradient is zero.' },
+        { text: 'at a constant position', why: 'It is moving, so its position keeps changing.' }
+      ],
+      answer: 0,
+      work: 'Gradient of v–t = acceleration = 0, so the velocity is constant at 8 m s⁻¹.'
+    },
+    {
+      type: 'mcq',
+      badge: 'areahunter',
+      stem: 'An object moving at 2.0 m s⁻¹ accelerates at 1.5 m s⁻² for 4.0 s. The area under its <strong>acceleration–time</strong> graph is 6.0. What does the 6.0 represent?',
+      options: [
+        { text: 'The change in velocity, so the final velocity is 8.0 m s⁻¹' },
+        { text: 'The final velocity, 6.0 m s⁻¹', why: 'The area gives the <em>change</em> in velocity. You still have to add the initial velocity.' },
+        { text: 'The displacement, 6.0 m', why: 'Area under a–t has units m s⁻² × s = m s⁻¹, a velocity, not a displacement.' },
+        { text: 'The average velocity', why: 'Area under a–t is always a change in velocity, Δv.' }
+      ],
+      answer: 0,
+      work: 'Area = a × t = 1.5 × 4.0 = 6.0 m s⁻¹ = Δv\nv = u + Δv = 2.0 + 6.0 = 8.0 m s⁻¹'
+    },
+    {
+      type: 'mcq',
+      stem: 'A displacement–time graph is a smooth hill shape. What does this tell you?',
+      options: [
+        { text: 'The body moved away, slowed, stopped, then came back — the graph is not a picture of the path' },
+        { text: 'The body physically travelled over a hill', why: 'An s–t graph shows position against <em>time</em>, not a map of the route.' },
+        { text: 'The body accelerated the whole time at a constant rate', why: 'The gradient falls to zero and then goes negative, so the velocity is changing sign.' },
+        { text: 'The body was stationary at the peak for a long time', why: 'It is at rest for one instant only, where the gradient is zero.' }
+      ],
+      answer: 0,
+      work: 'Gradient = velocity: positive, falling to zero at the peak, then negative.\nAn s–t graph is never a picture of the path.'
+    },
+    {
+      type: 'num',
+      badge: 'gradient',
+      stem: 'On a displacement–time graph, the tangent drawn at t = 2.0 s passes through (1.0 s, 0 m) and (4.5 s, 7.0 m). Determine the <strong>instantaneous velocity</strong> at t = 2.0 s.',
+      answer: 2.0,
+      unit: 'm s⁻¹',
+      work: 'gradient = Δy / Δx = (7.0 − 0) / (4.5 − 1.0) = 7.0 / 3.5 = 2.0 m s⁻¹'
+    },
+    {
+      type: 'num',
+      badge: 'areahunter',
+      stem: 'A bus starts from rest, speeds up uniformly to 12 m s⁻¹ in 6.0 s, holds 12 m s⁻¹ for 10 s, then slows uniformly to rest in 4.0 s. Determine the total <strong>displacement</strong>.',
+      answer: 180,
+      unit: 'm',
+      hint: 'The whole shape is a trapezium: ½(a + b) × h.',
+      work: '½ × 6.0 × 12 = 36 m;  10 × 12 = 120 m;  ½ × 4.0 × 12 = 24 m\nTotal = 180 m   (check: ½(10 + 20) × 12 = 180 m ✓)'
+    },
+    {
+      type: 'num',
+      stem: 'A cyclist speeds up from 4.0 m s⁻¹ to 10 m s⁻¹ over 4.0 s. Determine the <strong>acceleration</strong>.',
+      answer: 1.5,
+      unit: 'm s⁻²',
+      work: 'a = (10 − 4.0) / 4.0 = 1.5 m s⁻²  (the gradient of the v–t line)'
+    }
+  ];
+
+  /* ------------------------------ S3: equations of motion ---------------- */
+
+  const s3 = [
+    {
+      type: 'mcq',
+      tag: 'HINGE',
+      badge: 'topofflight',
+      stem: 'A ball is thrown vertically upwards; air resistance is negligible. What is its <strong>acceleration at the highest point</strong>?',
+      options: [
+        { text: 'Zero', why: 'That confuses v = 0 with a = 0. Gravity never switches off.' },
+        { text: '9.81 m s⁻² upwards', why: 'Nothing pushes the ball up after it leaves the hand — only weight acts.' },
+        { text: '9.81 m s⁻² downwards' },
+        { text: 'It changes direction at the top', why: 'The <em>velocity</em> changes direction; the acceleration does not.' }
+      ],
+      answer: 2,
+      work: 'Only weight acts, so a = g = 9.81 m s⁻² downwards for the whole flight.\nThe v–t graph is a single straight line: one constant gradient.'
+    },
+    {
+      type: 'mcq',
+      badge: 'chooser',
+      stem: 'A car has u = 16 m s⁻¹ and decelerates at 4.0 m s⁻² until it stops. <strong>Which equation</strong> should you use to find the distance?',
+      options: [
+        { text: 'v² = u² + 2as — no time is given or wanted' },
+        { text: 's = ut + ½at²', why: 'This needs t, which you have not been given.' },
+        { text: 'v = u + at', why: 'This has no s in it, so it cannot give you a distance directly.' },
+        { text: 's = ((u + v)/2)t', why: 'This also needs t.' }
+      ],
+      answer: 0,
+      work: 'List s, u, v, a, t. Here t is the one quantity missing and unwanted,\nso pick the equation without t: v² = u² + 2as\n0 = 16² + 2(−4.0)s  →  s = 256 / 8.0 = 32 m'
+    },
+    {
+      type: 'mcq',
+      badge: 'signmaster',
+      stem: 'A stone is thrown <strong>up</strong> from a cliff and lands in the sea 30 m <strong>below</strong> the launch point. Taking up as positive, what are s and a for the whole flight?',
+      options: [
+        { text: 's = −30 m, a = −9.81 m s⁻² throughout' },
+        { text: 's = +30 m, a = −9.81 m s⁻²', why: 'The stone finishes <em>below</em> where it started, so with up positive s is negative.' },
+        { text: 's = −30 m, a = +9.81 m s⁻² going up then −9.81 m s⁻² coming down', why: 'g does not change sign. Only the velocity changes sign.' },
+        { text: 's = −30 m, a = 0 at the top', why: 'a = g at every point, including the top.' }
+      ],
+      answer: 0,
+      work: 'Choose up positive and keep it for the whole problem.\nFinishing below the start → s = −30 m.  a = −9.81 m s⁻² throughout.'
+    },
+    {
+      type: 'mcq',
+      stem: 'When do the four equations of motion apply?',
+      options: [
+        { text: 'Only when the acceleration is uniform, along a straight line' },
+        { text: 'To any motion at all', why: 'They are derived from a straight v–t line, so they need constant acceleration.' },
+        { text: 'Only to free fall', why: 'They apply to any uniformly accelerated straight-line motion, not just free fall.' },
+        { text: 'Whenever the velocity is constant', why: 'They work then too, but that is only the special case a = 0.' }
+      ],
+      answer: 0,
+      work: 'Uniform acceleration only. With drag the acceleration changes,\nso use graphs or data instead.'
+    },
+    {
+      type: 'num',
+      badge: 'chooser',
+      stem: 'A cyclist accelerates uniformly from 2.0 m s⁻¹ to 8.0 m s⁻¹ over 30 m. Determine the <strong>acceleration</strong>.',
+      answer: 1.0,
+      unit: 'm s⁻²',
+      hint: 'No time is given — which equation leaves t out?',
+      work: 'v² = u² + 2as:  8.0² = 2.0² + 2a(30)\n64 = 4.0 + 60a  →  a = 1.0 m s⁻²'
+    },
+    {
+      type: 'num',
+      stem: 'A stone is dropped from rest from a bridge and hits the water 2.5 s later. Calculate the <strong>height of the bridge</strong>. (g = 9.81 m s⁻²)',
+      answer: 30.66,
+      unit: 'm',
+      tol: 0.03,
+      work: 's = ut + ½at² = 0 + ½ × 9.81 × 2.5² = 31 m'
+    },
+    {
+      type: 'num',
+      badge: 'topofflight',
+      stem: 'A ball is thrown straight up at 20 m s⁻¹. Calculate its <strong>maximum height</strong>. (g = 9.81 m s⁻²)',
+      answer: 20.39,
+      unit: 'm',
+      tol: 0.03,
+      hint: 'At the top, v = 0.',
+      work: 'v² = u² + 2as with v = 0:  0 = 20² − 2(9.81)s\ns = 400 / 19.62 = 20 m'
+    },
+    {
+      type: 'num',
+      stem: 'A train at 25 m s⁻¹ brakes uniformly and stops in 500 m. Calculate the <strong>magnitude of its acceleration</strong>.',
+      answer: 0.625,
+      unit: 'm s⁻²',
+      tol: 0.03,
+      work: 'v² = u² + 2as:  0 = 25² + 2a(500)\na = −625 / 1000 = −0.63 m s⁻², i.e. a deceleration of 0.63 m s⁻²'
+    }
+  ];
+
+  /* ------------------------------ S4: projectiles ------------------------ */
+
+  const s4 = [
+    {
+      type: 'mcq',
+      tag: 'HINGE',
+      badge: 'independence',
+      stem: 'Two balls roll off the <strong>same bench</strong>, one at 4 m s⁻¹ and one at 8 m s⁻¹. Air resistance is negligible. Which statement is correct?',
+      options: [
+        { text: 'Both reach the floor at the same time' },
+        { text: 'The faster ball takes half as long', why: 'Horizontal speed has no effect on the vertical motion.' },
+        { text: 'The faster ball takes twice as long', why: 'A longer path does not mean a longer time here — the fall is what sets the time.' },
+        { text: 'The faster ball lands first because it has more speed overall', why: 'Only the vertical part of the motion decides the time.' }
+      ],
+      answer: 0,
+      work: 'Same height, both with uy = 0 and a = g → the same time to fall.\nThe faster ball simply lands twice as far away.'
+    },
+    {
+      type: 'mcq',
+      badge: 'topofflight',
+      stem: 'A ball is kicked at 20 m s⁻¹, 35° above the horizontal. What is its <strong>velocity at the highest point</strong>?',
+      options: [
+        { text: '16 m s⁻¹ horizontally' },
+        { text: 'Zero — it stops at the top', why: 'Only the <em>vertical</em> component is zero. The ball is still moving horizontally.' },
+        { text: '11 m s⁻¹ vertically', why: 'That is uy at launch; at the top vy = 0.' },
+        { text: '20 m s⁻¹ horizontally', why: 'The horizontal component is u cos 35° = 16 m s⁻¹, not the full 20 m s⁻¹.' }
+      ],
+      answer: 0,
+      work: 'vx = u cos 35° = 20 × 0.819 = 16.4 m s⁻¹ (constant all flight)\nvy = 0 at the top, so v = 16 m s⁻¹ horizontally.'
+    },
+    {
+      type: 'mcq',
+      badge: 'independence',
+      stem: 'With no fluid resistance, what happens to a projectile\'s <strong>horizontal velocity</strong> during the flight?',
+      options: [
+        { text: 'It stays constant — there is no horizontal force' },
+        { text: 'It decreases steadily', why: 'That happens only when there is drag. In a vacuum, no horizontal force means no horizontal acceleration.' },
+        { text: 'It decreases going up and increases coming down', why: 'That describes the <em>vertical</em> component.' },
+        { text: 'It increases, because gravity speeds the ball up', why: 'Gravity acts straight down, so it changes only the vertical component.' }
+      ],
+      answer: 0,
+      work: 'ax = 0, so vx = ux for the whole flight. Only vy changes.'
+    },
+    {
+      type: 'mcq',
+      stem: 'A drone flies horizontally at 6.0 m s⁻¹ and releases a parcel. Where is the drone when the parcel lands?',
+      options: [
+        { text: 'Directly above the parcel' },
+        { text: 'Behind the parcel', why: 'Both keep the same horizontal velocity of 6.0 m s⁻¹, so neither gets ahead.' },
+        { text: 'Ahead of the parcel', why: 'The parcel keeps the drone\'s horizontal velocity when released.' },
+        { text: 'It depends on the height of release', why: 'Both cover the same horizontal distance in the same time, at any height.' }
+      ],
+      answer: 0,
+      work: 'The parcel starts with the drone\'s horizontal velocity and keeps it (no drag).\nBoth travel 6.0 m every second, so the drone stays directly above.'
+    },
+    {
+      type: 'mcq',
+      stem: 'Is it true that <strong>45° always gives the greatest range</strong>?',
+      options: [
+        { text: 'No — only on level ground with no air resistance' },
+        { text: 'Yes, always', why: 'Launch from a height, or add drag, and the best angle drops below 45°.' },
+        { text: 'No — the best angle is always 60°', why: 'There is no single best angle; it depends on the launch height and on drag.' },
+        { text: 'Yes, because the components are equal there', why: 'Equal components only maximise the range in the special level, drag-free case.' }
+      ],
+      answer: 0,
+      work: 'Level ground, no drag → 45°.\nFrom a height, or with drag, the optimum angle is less than 45°.'
+    },
+    {
+      type: 'num',
+      badge: 'independence',
+      stem: 'A ball rolls off a bench 1.20 m high at 3.0 m s⁻¹ horizontally. Calculate the <strong>time to reach the floor</strong>. (g = 9.81 m s⁻²)',
+      answer: 0.4946,
+      unit: 's',
+      tol: 0.04,
+      hint: 'Use the vertical column only: uy = 0.',
+      work: 'Vertical (down positive): 1.20 = ½ × 9.81 × t²\nt² = 0.2447  →  t = 0.49 s\nThe 3.0 m s⁻¹ plays no part in this.'
+    },
+    {
+      type: 'num',
+      stem: 'A ball is launched from level ground at 12 m s⁻¹, 60° above the horizontal. Determine the <strong>range</strong>. (g = 9.81 m s⁻²)',
+      answer: 12.71,
+      unit: 'm',
+      tol: 0.04,
+      hint: 'Resolve, find the time of flight from the vertical, then use it horizontally.',
+      work: 'ux = 12 cos 60° = 6.0 m s⁻¹;  uy = 12 sin 60° = 10.4 m s⁻¹\nT = 2uy / g = 2 × 10.39 / 9.81 = 2.12 s\nR = ux T = 6.0 × 2.12 = 13 m'
+    },
+    {
+      type: 'num',
+      stem: 'A stone is thrown at 15 m s⁻¹, <strong>20° below</strong> the horizontal, from a 25 m cliff. Calculate the <strong>time to reach the ground</strong>. (g = 9.81 m s⁻²)',
+      answer: 1.794,
+      unit: 's',
+      tol: 0.04,
+      hint: 'Down positive: 25 = 5.13t + 4.905t². Use the quadratic formula and keep the positive root.',
+      work: 'uy = 15 sin 20° = 5.13 m s⁻¹ downwards\n25 = 5.13t + 4.905t²  →  4.905t² + 5.13t − 25 = 0\nt = 1.79 s (positive root)'
+    }
+  ];
+
+  /* ------------------------------ S5: fluid resistance ------------------- */
+
+  const s5 = [
+    {
+      type: 'mcq',
+      tag: 'HINGE',
+      badge: 'terminal',
+      stem: 'A skydiver is falling at a constant <strong>terminal speed</strong>. What is the <strong>resultant force</strong> on her?',
+      options: [
+        { text: 'Zero' },
+        { text: 'Equal to her weight, downwards', why: 'Weight is one of the forces acting, not the resultant of them all.' },
+        { text: 'Upwards, because drag is now larger than weight', why: 'That is true just after the parachute opens, not at terminal speed.' },
+        { text: 'Small and downwards, to keep her moving', why: 'No resultant force is needed to keep moving at constant velocity.' }
+      ],
+      answer: 0,
+      work: 'Constant velocity → a = 0 → resultant force = 0.\nWeight and drag both act; they are balanced (drag = weight).'
+    },
+    {
+      type: 'mcq',
+      badge: 'terminal',
+      stem: 'A skydiver falling at terminal speed <strong>opens her parachute</strong>. In which direction does she <strong>accelerate</strong>?',
+      options: [
+        { text: 'Upwards — she is slowing down while still moving down' },
+        { text: 'Downwards', why: 'She is slowing, so the acceleration opposes her downward velocity.' },
+        { text: 'She does not accelerate', why: 'Drag suddenly exceeds weight, so there is a resultant force.' },
+        { text: 'She moves upwards', why: 'She keeps moving <em>down</em> — just more slowly. Velocity and acceleration are different things.' }
+      ],
+      answer: 0,
+      work: 'The larger area makes drag > weight, so the resultant force is upwards.\nShe decelerates until drag falls back to equal her weight: a new, lower terminal speed.'
+    },
+    {
+      type: 'mcq',
+      badge: 'dragaware',
+      stem: 'Compared with the same launch in a vacuum, fluid resistance makes a projectile\'s <strong>time of flight</strong>:',
+      options: [
+        { text: 'shorter overall, because the peak is lower' },
+        { text: 'longer, because the descent is slower', why: 'The descent is slower, but the much lower peak wins: the total is shorter.' },
+        { text: 'unchanged, because drag is horizontal only', why: 'Drag acts opposite to the <em>whole</em> velocity, so it has a vertical component too.' },
+        { text: 'longer, because drag holds it up', why: 'On the way up drag acts <em>downwards</em>, adding to weight.' }
+      ],
+      answer: 0,
+      work: 'Going up: drag and weight both act down → slows faster → lower peak.\nA lower peak gives a shorter total flight, even though the descent itself is slower.'
+    },
+    {
+      type: 'mcq',
+      badge: 'dragaware',
+      stem: 'A ball is thrown straight up in air (drag not negligible). What is the magnitude of its acceleration <strong>at the highest point</strong>?',
+      options: [
+        { text: 'Exactly g, because v = 0 there so drag = 0' },
+        { text: 'Greater than g', why: 'That is true on the way <em>up</em>, where drag and weight both act downwards.' },
+        { text: 'Less than g', why: 'That is true on the way <em>down</em>, where drag opposes weight.' },
+        { text: 'Zero', why: 'v = 0 at the top, but the weight still acts, so the acceleration is g.' }
+      ],
+      answer: 0,
+      work: 'Drag grows with speed, so at v = 0 there is no drag.\nUp: |a| > g.   At the top: |a| = g exactly.   Down: |a| < g.'
+    },
+    {
+      type: 'mcq',
+      stem: 'A feather and a stone are dropped together <strong>in air</strong>. Why does the feather reach terminal speed much sooner?',
+      options: [
+        { text: 'It has a small weight and a large area, so drag equals its weight at a low speed' },
+        { text: 'It is lighter, so gravity pulls it less and it accelerates more slowly', why: 'Without air, both accelerate at g regardless of mass. It is the drag-to-weight ratio that matters.' },
+        { text: 'Air pushes it upwards from the start', why: 'At release v = 0, so drag = 0 for both. Drag only grows as they speed up.' },
+        { text: 'Feathers are not affected by gravity', why: 'Weight acts on the feather too; it is simply balanced by drag at a very low speed.' }
+      ],
+      answer: 0,
+      work: 'Terminal speed is where drag = weight.\nA small weight and a large area means that balance happens at a low speed, reached quickly.'
+    },
+    {
+      type: 'mcq',
+      badge: 'dragaware',
+      stem: 'With drag, how does the <strong>shape of the trajectory</strong> change?',
+      options: [
+        { text: 'The peak is lower and the descent is steeper — no longer a symmetric parabola' },
+        { text: 'It stays a symmetric parabola, just smaller', why: 'Drag makes the descent take longer than the ascent, so the two halves no longer match.' },
+        { text: 'The peak shifts past the halfway point', why: 'The peak comes <em>earlier</em> than halfway, because the ascent is the faster half.' },
+        { text: 'It becomes a straight line', why: 'It stays curved; only the symmetry is lost.' }
+      ],
+      answer: 0,
+      work: 'Up: drag + weight → steeper slowing → lower, earlier peak.\nDown: drag opposes weight → |a| < g → a longer, steeper descent.'
+    },
+    {
+      type: 'mcq',
+      stem: 'Two skydivers have the <strong>same shape and area</strong>, but one is heavier. Whose terminal speed is higher?',
+      options: [
+        { text: 'The heavier one — more drag is needed to balance a larger weight' },
+        { text: 'The lighter one', why: 'A smaller weight is balanced by drag at a lower speed, so the lighter one is slower.' },
+        { text: 'They are the same, because g is the same', why: 'g sets the acceleration at release, not the terminal speed.' },
+        { text: 'It cannot be decided without knowing the height', why: 'Terminal speed does not depend on the drop height.' }
+      ],
+      answer: 0,
+      work: 'Terminal speed is where drag = weight, and drag grows with speed,\nso a larger weight needs a larger speed to be balanced.'
+    },
+    {
+      type: 'mcq',
+      stem: 'Why do the four equations of motion <strong>fail</strong> once drag matters?',
+      options: [
+        { text: 'The acceleration is no longer uniform' },
+        { text: 'Because drag is a vector', why: 'Weight is a vector too — the problem is that drag changes with speed.' },
+        { text: 'Because g changes with height', why: 'Near the Earth\'s surface g is taken as constant. The issue is the drag force.' },
+        { text: 'They do not fail — you just add a drag term', why: 'The equations are derived assuming a constant a; there is no drag term to add.' }
+      ],
+      answer: 0,
+      work: 'As v rises, drag rises, so the resultant force and the acceleration change.\nThe equations assume constant a, so use graphs or a numerical model instead.'
+    }
+  ];
+
+  const banks = { s1, s2, s3, s4, s5 };
+
+  /** The five hinge questions, used by the final mission. */
+  function hinges() {
+    return Object.values(banks).map(bank => bank.find(q => q.tag === 'HINGE')).filter(Boolean);
+  }
+
+  return { banks, sample, pick, hinges };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   shell.js — the frame every zone runs inside: header, brief, step counter,
+   score, and the end-of-zone debrief.  Zones are written as async functions
+   that await one step at a time.
+   ========================================================================== */
+
+const Shell = (() => {
+  'use strict';
+  const el = UI.el;
+
+  /** 0–5 stars from a fraction of the available marks. */
+  function starsFor(score, max) {
+    if (max <= 0) return 0;
+    const pct = score / max;
+    if (pct >= 0.95) return 5;
+    if (pct >= 0.85) return 4;
+    if (pct >= 0.70) return 3;
+    if (pct >= 0.55) return 2;
+    if (pct > 0)     return 1;
+    return 0;
+  }
+
+  /**
+   * Build the zone frame.  Returns a runner:
+   *   run.brief(html)        — mission text under the title
+   *   run.stage              — the element a step draws into
+   *   run.side               — the right-hand column (controls, questions)
+   *   run.setStep(i, n)      — progress dots
+   *   run.award(points, max) — record marks as they are earned
+   *   run.finish()           — show the debrief and save
+   */
+  function zone(root, meta) {
+    const state = { score: 0, max: 0, step: 0, steps: meta.steps || 1 };
+
+    const stepWrap = el('div');
+    const head = el('div.panel', { style: { borderLeft: `4px solid ${meta.accent}` } },
+      el('div.spread', null,
+        el('div', null,
+          el('div.eyebrow', { style: { color: meta.accent } }, meta.tag),
+          el('h1', { style: { fontSize: '1.6rem', marginBottom: '2px' } }, meta.name),
+          el('p.small.muted.mb0', null, meta.subtitle)
+        ),
+        stepWrap
+      ),
+      el('div', { id: 'zoneBrief' })
+    );
+
+    const stage = el('div');
+    const side = el('div');
+    const layout = el('div.stage', null, stage, side);
+
+    root.append(head, layout);
+
+    const scoreCell = el('span.chip.chip--gold', null, '0 marks');
+    const setStep = (i, n) => {
+      state.step = i; state.steps = n;
+      stepWrap.innerHTML = '';
+      stepWrap.append(el('div.row', null,
+        el('span.small.muted', null, `Task ${Math.min(i + 1, n)} of ${n}`),
+        UI.dots(n, k => (k < i ? 'done' : k === i ? 'now' : '')),
+        scoreCell
+      ));
+    };
+    setStep(0, state.steps);
+
+    const run = {
+      stage, side, meta, state,
+      brief(html) {
+        const node = UI.$('#zoneBrief', head);
+        node.innerHTML = '';
+        node.append(el('p.small.muted.mt.mb0', { html }));
+      },
+      setStep,
+      award(points, max) {
+        state.score += points;
+        state.max += max;
+        scoreCell.textContent = `${state.score} / ${state.max} marks`;
+      },
+      /** Replace the stage and side content for a new task. */
+      clear() { stage.innerHTML = ''; side.innerHTML = ''; },
+      finish() { return debrief(run); }
+    };
+    return run;
+  }
+
+  /** Ask a list of questions in the given container; resolves with marks won. */
+  function askAll(container, questions, opts) {
+    const options = opts || {};
+    return new Promise(resolve => {
+      let i = 0, correct = 0;
+      const slot = el('div');
+      const head = el('div.spread.mb0', null,
+        el('div.eyebrow', null, options.title || 'Flight check'),
+        UI.dots(questions.length, () => '')
+      );
+      container.append(el('div.panel', null, head, slot));
+
+      const redraw = () => {
+        head.lastChild.replaceWith(UI.dots(questions.length, k =>
+          k < i ? (marks[k] ? 'done' : 'miss') : k === i ? 'now' : ''));
+      };
+      const marks = [];
+
+      const next = () => {
+        if (i >= questions.length) { resolve(correct); return; }
+        redraw();
+        const q = questions[i];
+        UI.ask(slot, q, ({ correct: ok }) => {
+          marks[i] = ok;
+          if (ok) { correct++; Game.addXp(options.xp || 25); }
+          i++;
+          if (options.onAnswer) options.onAnswer(ok, i, questions.length);
+          next();
+        });
+      };
+      next();
+    });
+  }
+
+  /** End-of-zone screen: stars, marks, XP bonus and what to revise. */
+  function debrief(run) {
+    return new Promise(resolve => {
+      const { score, max } = run.state;
+      const stars = starsFor(score, max);
+      const prev = Game.zoneState(run.meta.id);
+      const improved = stars > prev.stars;
+      const bonus = stars * 40;
+      Game.addXp(bonus);
+      Game.finishZone(run.meta.id, { stars, score });
+
+      const body = el('div');
+      body.append(el('div.stars-big', null, UI.stars(stars, 5)));
+      body.append(el('p.center', null,
+        `${score} of ${max} marks  ·  +${bonus} XP bonus`,
+        improved && prev.stars > 0 ? el('span', null, ' · new best!') : null
+      ));
+
+      if (stars >= 4) {
+        body.append(el('p', { html: run.meta.praise || 'Zone secured. The next mission is open.' }));
+      } else {
+        body.append(el('p', { html: `<strong>Worth another run.</strong> ${run.meta.revise || ''}` }));
+      }
+
+      if (run.meta.recap) {
+        const list = el('ul.tight');
+        run.meta.recap.forEach(line => list.append(el('li', { html: line })));
+        body.append(el('h3.mt', null, 'Remember'), list);
+      }
+
+      UI.modal('Mission debrief', body, [
+        { label: 'Back to map', primary: true, onClick: () => { Game.go('map'); resolve(stars); } },
+        { label: 'Run it again', onClick: () => { Game.go('zone', { id: run.meta.id }); resolve(stars); } }
+      ]);
+    });
+  }
+
+  return { zone, askAll, starsFor, debrief };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   zone1.js — S1 Describing motion: "Beacon Run"
+   The cadet flies a rescue drone between beacons and files a flight log.
+   Task 1  Flight recorder — distance vs displacement, speed vs velocity.
+   Task 2  Sign duel       — speeding up or slowing down, from the signs.
+   Task 3  Flight check    — questions from the S1 bank.
+   ========================================================================== */
+
+const Zone1 = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#2fd6c3';
+
+  const META = {
+    id: 'z1',
+    tag: 'Zone 1 · S1',
+    name: 'Beacon Run',
+    subtitle: 'Describing motion: position, displacement, speed, velocity, acceleration',
+    accent: ACCENT,
+    steps: 3,
+    praise: 'Flight logs accepted. Navigation systems trust your readings.',
+    revise: 'Re-read S1 steps 2–7: displacement is a change in position, and the sign of a tells you a direction, not "slowing down".',
+    recap: [
+      'Distance is the path length (scalar); displacement is the change in position (vector).',
+      'Average speed = distance ÷ time.  Average velocity = displacement ÷ time.',
+      'Same signs for v and a → speeding up.  Opposite signs → slowing down.',
+      'A direction needs a reference: "32° west of north", not just "32°".'
+    ]
+  };
+
+  /* ------------------------------ flight generation ---------------------- */
+
+  const COMPASS = {
+    N: { dx: 0, dy: 1, name: 'north' },
+    S: { dx: 0, dy: -1, name: 'south' },
+    E: { dx: 1, dy: 0, name: 'east' },
+    W: { dx: -1, dy: 0, name: 'west' }
+  };
+
+  /** A 3-leg flight with a non-zero, non-degenerate net displacement. */
+  function makeFlight() {
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const pattern = Questions.pick([['N', 'W', 'S'], ['E', 'N', 'W'], ['N', 'E', 'S'], ['W', 'S', 'E'], ['E', 'S', 'W']]);
+      const legs = pattern.map(dirKey => ({
+        dir: dirKey,
+        length: 10 * (2 + Math.floor(Math.random() * 11))   // 20–120 m
+      }));
+      let x = 0, y = 0, distance = 0;
+      legs.forEach(leg => {
+        x += COMPASS[leg.dir].dx * leg.length;
+        y += COMPASS[leg.dir].dy * leg.length;
+        distance += leg.length;
+      });
+      const displacement = Math.hypot(x, y);
+      if (displacement < 25 || Math.abs(x) < 10 || Math.abs(y) < 10) continue;
+      const time = 10 * (3 + Math.floor(Math.random() * 10));  // 30–120 s
+      return { legs, x, y, distance, displacement, time };
+    }
+    // Fallback: the drone example from slide 23 of the content deck.
+    return {
+      legs: [{ dir: 'N', length: 120 }, { dir: 'W', length: 50 }, { dir: 'S', length: 40 }],
+      x: -50, y: 80, distance: 210, displacement: Math.hypot(50, 80), time: 60
+    };
+  }
+
+  /** Compass bearing of the net displacement, phrased the way the deck does. */
+  function bearingText(x, y) {
+    const ns = y >= 0 ? 'north' : 'south';
+    const ew = x >= 0 ? 'east' : 'west';
+    const angleFromNS = Physics.deg(Math.atan2(Math.abs(x), Math.abs(y)));
+    return `${Physics.sig(angleFromNS, 2)}° ${ew} of ${ns}`;
+  }
+
+  /* ------------------------------ drawing -------------------------------- */
+
+  function drawFlight(ctx, w, h, flight, progress) {
+    const pad = 34;
+    const pts = [{ x: 0, y: 0 }];
+    let cx = 0, cy = 0;
+    flight.legs.forEach(leg => {
+      cx += COMPASS[leg.dir].dx * leg.length;
+      cy += COMPASS[leg.dir].dy * leg.length;
+      pts.push({ x: cx, y: cy });
+    });
+
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const spanX = Math.max(maxX - minX, 40), spanY = Math.max(maxY - minY, 40);
+    const scale = Math.min((w - 2 * pad) / spanX, (h - 2 * pad) / spanY);
+    const ox = pad + (w - 2 * pad - spanX * scale) / 2 - minX * scale;
+    const oy = h - pad - (h - 2 * pad - spanY * scale) / 2 + minY * scale;
+    const X = mx => ox + mx * scale;
+    const Y = my => oy - my * scale;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#050a12';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid at 10 m spacing, so the scale is readable.
+    ctx.strokeStyle = 'rgba(36,52,79,.8)';
+    ctx.lineWidth = 1;
+    for (let gx = Math.floor(minX / 10) * 10; gx <= maxX + 10; gx += 10) {
+      ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), h); ctx.stroke();
+    }
+    for (let gy = Math.floor(minY / 10) * 10; gy <= maxY + 10; gy += 10) {
+      ctx.beginPath(); ctx.moveTo(0, Y(gy)); ctx.lineTo(w, Y(gy)); ctx.stroke();
+    }
+
+    // Compass rose
+    ctx.fillStyle = '#5f7190';
+    ctx.font = '600 11px ui-monospace, monospace';
+    ctx.fillText('N ↑', 10, 18);
+    ctx.fillText('E →', 10, 32);
+    ctx.fillText('10 m grid', 10, h - 10);
+
+    // The route actually flown: this length is the DISTANCE.
+    const totalLen = flight.distance;
+    let walked = totalLen * progress;
+    ctx.strokeStyle = ACCENT;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    let head = { x: 0, y: 0 };
+    for (let i = 1; i < pts.length; i++) {
+      const segLen = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      if (walked >= segLen) {
+        ctx.lineTo(X(pts[i].x), Y(pts[i].y));
+        head = pts[i];
+        walked -= segLen;
+      } else {
+        const f = segLen > 0 ? walked / segLen : 0;
+        head = {
+          x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * f,
+          y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * f
+        };
+        ctx.lineTo(X(head.x), Y(head.y));
+        walked = 0;
+        break;
+      }
+    }
+    ctx.stroke();
+
+    // The straight start-to-finish arrow: this is the DISPLACEMENT.
+    if (progress > 0.995) {
+      ctx.strokeStyle = '#ffc24a';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([7, 5]);
+      ctx.beginPath();
+      ctx.moveTo(X(0), Y(0));
+      ctx.lineTo(X(flight.x), Y(flight.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const ang = Math.atan2(Y(flight.y) - Y(0), X(flight.x) - X(0));
+      ctx.fillStyle = '#ffc24a';
+      ctx.beginPath();
+      ctx.moveTo(X(flight.x), Y(flight.y));
+      ctx.lineTo(X(flight.x) - 11 * Math.cos(ang - 0.4), Y(flight.y) - 11 * Math.sin(ang - 0.4));
+      ctx.lineTo(X(flight.x) - 11 * Math.cos(ang + 0.4), Y(flight.y) - 11 * Math.sin(ang + 0.4));
+      ctx.fill();
+      ctx.font = '600 11px ui-monospace, monospace';
+      ctx.fillText('displacement', X(flight.x / 2) + 8, Y(flight.y / 2) - 6);
+    }
+
+    // Beacons and drone
+    pts.forEach((p, i) => {
+      ctx.fillStyle = i === 0 ? '#5ce08a' : '#24344f';
+      ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 5, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.fillStyle = '#e8eef8';
+    ctx.beginPath(); ctx.arc(X(head.x), Y(head.y), 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ACCENT;
+    ctx.beginPath(); ctx.arc(X(head.x), Y(head.y), 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* ------------------------------ task 1 --------------------------------- */
+
+  function flightRecorder(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(0, 3);
+      run.brief('Task 1 — <strong>Flight recorder.</strong> The drone flies its route, then mission control wants the log filled in. Watch the teal trail (the path it flew) and the gold arrow (start to finish).');
+
+      const flight = makeFlight();
+      const { cnv, ctx, w, h } = UI.canvas(540, 380);
+      const legText = flight.legs.map(l => `${l.length} m ${COMPASS[l.dir].name}`).join(', then ');
+
+      run.stage.append(
+        el('div.canvas-wrap', null, cnv),
+        el('div.panel.mt', null,
+          el('div.eyebrow', null, 'Flight plan'),
+          el('p.mb0', { html: `The drone flies <strong>${legText}</strong>. The flight takes <strong>${flight.time} s</strong>.` })
+        )
+      );
+
+      let progress = 0;
+      const anim = Zone.loop(dt => {
+        progress = Math.min(1, progress + dt * 0.45);
+        drawFlight(ctx, w, h, flight, progress);
+      });
+
+      const qs = [
+        {
+          type: 'num',
+          stem: 'Log the <strong>distance</strong> travelled.',
+          answer: flight.distance, unit: 'm', tol: 0.01,
+          badge: 'pathfinder',
+          hint: 'Add up the length of every leg.',
+          work: `distance = ${flight.legs.map(l => l.length).join(' + ')} = ${flight.distance} m`
+        },
+        {
+          type: 'num',
+          stem: 'Log the <strong>magnitude of the displacement</strong>.',
+          answer: flight.displacement, unit: 'm', tol: 0.02,
+          badge: 'pathfinder',
+          hint: 'Find the net movement east–west and north–south first, then use Pythagoras.',
+          work: `net: ${Math.abs(flight.x)} m ${flight.x >= 0 ? 'east' : 'west'} and ${Math.abs(flight.y)} m ${flight.y >= 0 ? 'north' : 'south'}\n`
+              + `s = √(${Math.abs(flight.x)}² + ${Math.abs(flight.y)}²) = ${Physics.sig(flight.displacement, 3)} m\n`
+              + `direction: ${bearingText(flight.x, flight.y)}`
+        },
+        {
+          type: 'num',
+          stem: 'Log the <strong>average speed</strong>.',
+          answer: flight.distance / flight.time, unit: 'm s⁻¹', tol: 0.02,
+          work: `average speed = distance ÷ time = ${flight.distance} ÷ ${flight.time} = ${Physics.sig(flight.distance / flight.time, 3)} m s⁻¹`
+        },
+        {
+          type: 'num',
+          stem: 'Log the <strong>magnitude of the average velocity</strong>.',
+          answer: flight.displacement / flight.time, unit: 'm s⁻¹', tol: 0.02,
+          work: `average velocity = displacement ÷ time = ${Physics.sig(flight.displacement, 3)} ÷ ${flight.time}\n`
+              + `= ${Physics.sig(flight.displacement / flight.time, 3)} m s⁻¹ at ${bearingText(flight.x, flight.y)}`
+        }
+      ];
+
+      Shell.askAll(run.side, qs, { title: 'Flight log', xp: 30 }).then(correct => {
+        anim.stop();
+        run.award(correct, qs.length);
+        resolve();
+      });
+    });
+  }
+
+  /* ------------------------------ task 2 --------------------------------- */
+
+  /** Quick-fire: given the signs of v and a, is the craft speeding up? */
+  function signDuel(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(1, 3);
+      run.brief('Task 2 — <strong>Sign duel.</strong> Take <strong>right as positive</strong>. The thruster reading gives the acceleration. Call it before the timer runs out: is the craft speeding up or slowing down?');
+
+      const ROUNDS = 8;
+      const TIME_LIMIT = 6;
+      let round = 0, correct = 0, timeLeft = TIME_LIMIT, locked = false;
+
+      const { cnv, ctx, w, h } = UI.canvas(540, 300);
+      const timerBar = el('div.hud__xpbar', { style: { height: '10px' } }, el('div.hud__xpfill', { style: { width: '100%', transition: 'none' } }));
+      const scoreLine = el('p.small.muted.mb0');
+      run.stage.append(el('div.canvas-wrap', null, cnv), el('div.mt', null, timerBar), el('div.mt', null, scoreLine));
+
+      let current = null;
+      const feedback = el('div');
+      const btnUp = el('button.btn.btn--wide', { type: 'button', onClick: () => answer(true) }, '⏩ Speeding up');
+      const btnDown = el('button.btn.btn--wide', { type: 'button', onClick: () => answer(false) }, '⏪ Slowing down');
+      run.side.append(el('div.panel', null,
+        el('div.eyebrow', null, 'Call it'),
+        el('p.small.muted', null, 'Rule from S1 step 7: same signs → speeding up; opposite signs → slowing down.'),
+        el('div.btn-row', null, btnUp, btnDown),
+        feedback
+      ));
+
+      function newRound() {
+        const v = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.floor(Math.random() * 12));
+        const a = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.floor(Math.random() * 8) * 0.5);
+        current = { v, a, speedingUp: v * a > 0 };
+        timeLeft = TIME_LIMIT;
+        locked = false;
+        btnUp.disabled = btnDown.disabled = false;
+        feedback.innerHTML = '';
+        scoreLine.textContent = `Round ${round + 1} of ${ROUNDS} — ${correct} correct`;
+      }
+
+      function answer(saidSpeedingUp) {
+        if (locked || !current) return;
+        locked = true;
+        btnUp.disabled = btnDown.disabled = true;
+        const ok = saidSpeedingUp === current.speedingUp;
+        if (ok) { correct++; Game.addXp(20); }
+        Game.recordAnswer(ok);
+        if (ok && correct >= 6) Game.awardBadge('signmaster');
+
+        const vs = current.v > 0 ? 'positive' : 'negative';
+        const as = current.a > 0 ? 'positive' : 'negative';
+        feedback.innerHTML = '';
+        feedback.append(el('div.feedback' + (ok ? '.feedback--right' : '.feedback--wrong'), null,
+          el('div.feedback__title', null, ok ? '✓ Correct' : '✗ Not quite'),
+          el('div', { html: `v is ${vs} and a is ${as} — <strong>${vs === as ? 'same' : 'opposite'} signs</strong>, so the craft is <strong>${current.speedingUp ? 'speeding up' : 'slowing down'}</strong>.` })
+        ));
+
+        setTimeout(() => {
+          round++;
+          if (round >= ROUNDS) {
+            anim.stop();
+            run.award(correct, ROUNDS);
+            resolve();
+          } else {
+            newRound();
+          }
+        }, 1500);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#050a12';
+        ctx.fillRect(0, 0, w, h);
+        if (!current) return;
+
+        const midY = h / 2;
+        // Axis with the positive direction spelled out.
+        ctx.strokeStyle = '#24344f';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(30, midY + 46); ctx.lineTo(w - 30, midY + 46); ctx.stroke();
+        ctx.fillStyle = '#5f7190';
+        ctx.font = '600 12px ui-monospace, monospace';
+        ctx.fillText('− negative', 34, midY + 66);
+        ctx.fillText('positive +', w - 106, midY + 66);
+
+        // Craft
+        const cx = w / 2;
+        ctx.fillStyle = '#e8eef8';
+        ctx.beginPath();
+        ctx.moveTo(cx + (current.v > 0 ? 26 : -26), midY);
+        ctx.lineTo(cx - (current.v > 0 ? 18 : -18), midY - 13);
+        ctx.lineTo(cx - (current.v > 0 ? 18 : -18), midY + 13);
+        ctx.closePath(); ctx.fill();
+
+        // Velocity arrow (teal) sized by |v|
+        arrow(ctx, cx, midY - 46, Math.sign(current.v) * (34 + Math.abs(current.v) * 7), ACCENT, `v = ${current.v > 0 ? '+' : ''}${current.v} m s⁻¹`);
+        // Acceleration arrow (gold) sized by |a|
+        arrow(ctx, cx, midY + 100, Math.sign(current.a) * (34 + Math.abs(current.a) * 14), '#ffc24a', `a = ${current.a > 0 ? '+' : ''}${current.a.toFixed(1)} m s⁻²`);
+      }
+
+      function arrow(c, x, y, len, colour, label) {
+        c.strokeStyle = colour; c.fillStyle = colour; c.lineWidth = 4;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x + len, y); c.stroke();
+        const s = Math.sign(len);
+        c.beginPath();
+        c.moveTo(x + len, y);
+        c.lineTo(x + len - s * 13, y - 8);
+        c.lineTo(x + len - s * 13, y + 8);
+        c.fill();
+        c.font = '700 13px ui-monospace, monospace';
+        c.fillText(label, x - 60, y - 16);
+      }
+
+      newRound();
+      const anim = Zone.loop(dt => {
+        if (!locked) {
+          timeLeft -= dt;
+          if (timeLeft <= 0) { answer(!current.speedingUp); }  // time out counts as wrong
+        }
+        timerBar.firstChild.style.width = `${Math.max(0, (timeLeft / TIME_LIMIT) * 100)}%`;
+        timerBar.firstChild.style.background = timeLeft < 2 ? '#ff6b81' : 'linear-gradient(90deg,#17806f,#2fd6c3)';
+        draw();
+      });
+    });
+  }
+
+  /* ------------------------------ zone entry ----------------------------- */
+
+  async function render(root) {
+    const run = Shell.zone(root, META);
+    await flightRecorder(run);
+    await signDuel(run);
+
+    run.clear();
+    run.setStep(2, 3);
+    run.brief('Task 3 — <strong>Flight check.</strong> Mission control asks the questions that decide whether you keep your licence.');
+    run.stage.append(el('div.panel', null,
+      el('div.eyebrow', null, 'S1 key ideas'),
+      el('ul.tight', { html: `
+        <li>Position needs an <strong>origin</strong> and a <strong>positive direction</strong>.</li>
+        <li>Displacement = final position − initial position.</li>
+        <li>Speed uses distance; velocity uses displacement and needs a direction.</li>
+        <li>A speedometer shows an <strong>instantaneous speed</strong>.</li>
+        <li>Constant speed round a bend is still <strong>accelerating</strong>.</li>` })
+    ));
+
+    const qs = Questions.sample(Questions.banks.s1, 4);
+    const correct = await Shell.askAll(run.side, qs, { title: 'Licence check', xp: 30 });
+    run.award(correct, qs.length);
+    run.setStep(3, 3);
+    await run.finish();
+  }
+
+  return { META, render };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   zone2.js — S2 Motion graphs: "Docking Sequence"
+   The cadet does not answer questions about a graph — the cadet *builds* the
+   graph, and the ship flies whatever they draw.
+     area under v–t = displacement,  gradient of v–t = acceleration.
+   Task 1  Docking   — shape a three-phase v–t profile to hit a dock exactly.
+   Task 2  Telemetry — read gradients and areas off a graph the ship flew.
+   Task 3  Flight check.
+   ========================================================================== */
+
+const Zone2 = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#a98bff';
+
+  const META = {
+    id: 'z2',
+    tag: 'Zone 2 · S2',
+    name: 'Docking Sequence',
+    subtitle: 'Motion graphs: gradients give rates, areas give changes',
+    accent: ACCENT,
+    steps: 3,
+    praise: 'Docking clamps engaged. You can read a graph and fly one.',
+    revise: 'Re-read S2 steps 1–6: gradient of v–t is acceleration, area under v–t is displacement, and area below the axis is negative.',
+    recap: [
+      'Gradient of s–t = velocity; use a <strong>tangent</strong> for an instantaneous value.',
+      'Gradient of v–t = acceleration.  Area under v–t = displacement.',
+      'Area under a–t = <strong>change</strong> in velocity, so add u to get v.',
+      'Area below the time axis counts as negative displacement.'
+    ]
+  };
+
+  /* ------------------------------ graph drawing -------------------------- */
+
+  /**
+   * Draw a velocity–time graph.  points = [{t, v}, ...].
+   * opts: { tMax, vMin, vMax, shade, title, marker:{t,v} }
+   */
+  function drawVT(ctx, w, h, points, opts) {
+    const o = opts || {};
+    const pad = { l: 52, r: 16, t: 22, b: 36 };
+    const tMax = o.tMax || Math.max(1, points[points.length - 1].t);
+    const vMax = o.vMax !== undefined ? o.vMax : Math.max(1, ...points.map(p => p.v)) * 1.15;
+    const vMin = o.vMin !== undefined ? o.vMin : Math.min(0, ...points.map(p => p.v)) * 1.15;
+    const X = t => pad.l + (t / tMax) * (w - pad.l - pad.r);
+    const Y = v => h - pad.b - ((v - vMin) / (vMax - vMin)) * (h - pad.t - pad.b);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#050a12';
+    ctx.fillRect(0, 0, w, h);
+
+    // Gridlines
+    const tStep = niceStep(tMax), vStep = niceStep(vMax - vMin);
+    ctx.strokeStyle = 'rgba(36,52,79,.9)';
+    ctx.fillStyle = '#5f7190';
+    ctx.font = '11px ui-monospace, monospace';
+    ctx.lineWidth = 1;
+    for (let t = 0; t <= tMax + 1e-9; t += tStep) {
+      ctx.beginPath(); ctx.moveTo(X(t), pad.t); ctx.lineTo(X(t), h - pad.b); ctx.stroke();
+      ctx.fillText(String(+t.toFixed(2)), X(t) - 8, h - pad.b + 15);
+    }
+    for (let v = Math.ceil(vMin / vStep) * vStep; v <= vMax + 1e-9; v += vStep) {
+      ctx.beginPath(); ctx.moveTo(pad.l, Y(v)); ctx.lineTo(w - pad.r, Y(v)); ctx.stroke();
+      ctx.fillText(String(+v.toFixed(2)), 8, Y(v) + 4);
+    }
+
+    // Shaded area under the curve: teal above the axis, rose below.
+    if (o.shade !== false) {
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i];
+        const negative = (a.v + b.v) / 2 < 0;
+        ctx.fillStyle = negative ? 'rgba(255,107,129,.20)' : 'rgba(47,214,195,.16)';
+        ctx.beginPath();
+        ctx.moveTo(X(a.t), Y(0));
+        ctx.lineTo(X(a.t), Y(a.v));
+        ctx.lineTo(X(b.t), Y(b.v));
+        ctx.lineTo(X(b.t), Y(0));
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // Axes
+    ctx.strokeStyle = '#93a4c0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke();
+
+    // The line itself
+    ctx.strokeStyle = o.colour || ACCENT;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    points.forEach((p, i) => (i ? ctx.lineTo(X(p.t), Y(p.v)) : ctx.moveTo(X(p.t), Y(p.v))));
+    ctx.stroke();
+
+    if (o.marker) {
+      ctx.fillStyle = '#ffc24a';
+      ctx.beginPath(); ctx.arc(X(o.marker.t), Y(o.marker.v), 6, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.fillStyle = '#93a4c0';
+    ctx.font = '600 11px ui-monospace, monospace';
+    ctx.fillText('v / m s⁻¹', 8, 14);
+    ctx.fillText('t / s', w - pad.r - 26, h - 8);
+    return { X, Y };
+  }
+
+  function niceStep(span) {
+    const raw = span / 6;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    const n = raw / pow;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * pow;
+  }
+
+  /* ------------------------------ task 1: docking ------------------------ */
+
+  const LEVELS = [
+    { target: 120, aMax: 3.0, tMax: 30, vCap: 14, dockSpeed: 0.0, note: 'Routine approach to Beacon Station.' },
+    { target: 250, aMax: 2.0, tMax: 42, vCap: 16, dockSpeed: 0.0, note: 'Heavier load: the hull will not take more than 2.0 m s⁻².' },
+    { target: 400, aMax: 2.5, tMax: 45, vCap: 20, dockSpeed: 0.0, note: 'Long run, tight clock. Cruise pays for itself.' }
+  ];
+
+  function docking(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(0, 3);
+      run.brief('Task 1 — <strong>Docking sequence.</strong> Shape the ship\'s velocity–time graph so that the <strong>area under it</strong> equals the distance to the dock, and so the ship arrives at rest. The <strong>gradient</strong> of each sloping part is the acceleration — go over the hull limit and the clamps shear off.');
+
+      let level = 0, marks = 0;
+
+      const { cnv, ctx, w, h } = UI.canvas(540, 300);
+      const shipCanvas = UI.canvas(540, 110);
+      run.stage.append(
+        el('div.canvas-wrap', null, cnv),
+        el('div.canvas-wrap.mt', null, shipCanvas.cnv)
+      );
+      const readouts = UI.readout({
+        area:  { label: 'Area = s' },
+        a1:    { label: 'Gradient a₁' },
+        a3:    { label: 'Gradient a₃' },
+        time:  { label: 'Total time' }
+      });
+      run.stage.append(readouts.wrap);
+
+      const panel = el('div.panel');
+      run.side.append(panel);
+
+      let sliders, flying = null, status;
+
+      function profile() {
+        const v = sliders.v.value, t1 = sliders.t1.value, t2 = sliders.t2.value, t3 = sliders.t3.value;
+        return [
+          { t: 0, v: 0 },
+          { t: t1, v },
+          { t: t1 + t2, v },
+          { t: t1 + t2 + t3, v: 0 }
+        ];
+      }
+
+      function analyse() {
+        const pts = profile();
+        const v = sliders.v.value, t1 = sliders.t1.value, t3 = sliders.t3.value;
+        const total = pts[3].t;
+        return {
+          pts,
+          displacement: Physics.areaUnder(pts),
+          a1: t1 > 0 ? v / t1 : (v > 0 ? Infinity : 0),
+          a3: t3 > 0 ? -v / t3 : (v > 0 ? -Infinity : 0),
+          totalTime: total
+        };
+      }
+
+      function refresh() {
+        const L = LEVELS[level];
+        const a = analyse();
+        readouts.set('area', `${Physics.sig(a.displacement, 4)} m`);
+        readouts.set('a1', isFinite(a.a1) ? `${Physics.fix(a.a1, 2)} m s⁻²` : '∞');
+        readouts.set('a3', isFinite(a.a3) ? `${Physics.fix(a.a3, 2)} m s⁻²` : '−∞');
+        readouts.set('time', `${Physics.fix(a.totalTime, 1)} s`);
+
+        const missBy = a.displacement - L.target;
+        const okDist = Math.abs(missBy) <= Math.max(2, L.target * 0.01);
+        const okAcc = Math.abs(a.a1) <= L.aMax + 1e-9 && Math.abs(a.a3) <= L.aMax + 1e-9;
+        const okTime = a.totalTime <= L.tMax + 1e-9;
+
+        status.innerHTML = '';
+        status.append(
+          chip(`distance ${okDist ? '✓' : (missBy > 0 ? `${Physics.sig(missBy, 2)} m long` : `${Physics.sig(-missBy, 2)} m short`)}`, okDist),
+          chip(`a ≤ ${L.aMax} m s⁻² ${okAcc ? '✓' : '✗'}`, okAcc),
+          chip(`t ≤ ${L.tMax} s ${okTime ? '✓' : '✗'}`, okTime)
+        );
+        launchBtn.disabled = !!flying;
+        drawVT(ctx, w, h, a.pts, { tMax: L.tMax, vMax: L.vCap * 1.1, vMin: 0, colour: ACCENT });
+        if (!flying) drawShip(0, 0);
+        return { a, okDist, okAcc, okTime, ok: okDist && okAcc && okTime };
+      }
+
+      function chip(text, on) {
+        return el('span.chip' + (on ? '.chip--on' : ''), null, text);
+      }
+
+      function drawShip(x, v) {
+        const L = LEVELS[level];
+        const c = shipCanvas.ctx, W = shipCanvas.w, H = shipCanvas.h;
+        c.clearRect(0, 0, W, H);
+        c.fillStyle = '#050a12'; c.fillRect(0, 0, W, H);
+
+        const trackY = H / 2 + 6;
+        const left = 40, right = W - 60;
+        const px = left + Math.max(0, Math.min(1.15, x / L.target)) * (right - left);
+
+        // Dock
+        c.strokeStyle = '#24344f'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(left, trackY); c.lineTo(right, trackY); c.stroke();
+        c.fillStyle = '#ffc24a';
+        c.fillRect(right - 3, trackY - 22, 6, 44);
+        c.font = '600 11px ui-monospace, monospace';
+        c.fillText('DOCK', right - 16, trackY - 30);
+        c.fillStyle = '#5f7190';
+        c.fillText(`${L.target} m`, left, trackY + 34);
+
+        // Ship
+        c.fillStyle = Math.abs(x - L.target) < 2 ? '#5ce08a' : '#e8eef8';
+        c.beginPath();
+        c.moveTo(px + 15, trackY);
+        c.lineTo(px - 11, trackY - 9);
+        c.lineTo(px - 11, trackY + 9);
+        c.closePath(); c.fill();
+        if (v > 0.2) {                      // exhaust plume while thrusting
+          c.fillStyle = 'rgba(47,214,195,.7)';
+          c.beginPath();
+          c.moveTo(px - 11, trackY - 4);
+          c.lineTo(px - 11 - Math.min(22, v * 1.6), trackY);
+          c.lineTo(px - 11, trackY + 4);
+          c.closePath(); c.fill();
+        }
+        c.fillStyle = '#93a4c0';
+        c.font = '600 11px ui-monospace, monospace';
+        c.fillText(`x = ${Physics.fix(x, 1)} m   v = ${Physics.fix(v, 1)} m s⁻¹`, left, 18);
+      }
+
+      /** Fly the profile the player drew, integrating it exactly. */
+      function launch() {
+        const L = LEVELS[level];
+        const check = refresh();
+        const a = check.a;
+        if (flying) return;
+
+        flying = { t: 0 };
+        launchBtn.disabled = true;
+        const anim = Zone.loop(dt => {
+          flying.t += dt * 1.6;
+          const t = Math.min(flying.t, a.totalTime);
+          const vNow = velocityAt(a, t);
+          const xNow = Physics.areaUnder(clipProfile(a.pts, t));
+          drawVT(ctx, w, h, a.pts, { tMax: L.tMax, vMax: L.vCap * 1.1, vMin: 0, colour: ACCENT, marker: { t, v: vNow } });
+          drawShip(xNow, vNow);
+          if (t >= a.totalTime) {
+            anim.stop();
+            flying = null;
+            settle(check, xNow);
+          }
+        });
+      }
+
+      function settle(check, finalX) {
+        const L = LEVELS[level];
+        const err = finalX - L.target;
+        if (check.ok) {
+          marks++;
+          Game.addXp(90);
+          Game.awardBadge('areahunter');
+          UI.modal('Docked ✓', el('div', null,
+            el('p', { html: `Clamps engaged with <strong>${Physics.sig(Math.abs(err), 2)} m</strong> to spare.` }),
+            el('p.small.muted', { html: `The area under your graph was ${Physics.sig(check.a.displacement, 4)} m — that area <em>is</em> the displacement. Your gradients were ${Physics.fix(check.a.a1, 2)} and ${Physics.fix(check.a.a3, 2)} m s⁻², both inside the ${L.aMax} m s⁻² hull limit.` })
+          ), [{ label: level < LEVELS.length - 1 ? 'Next approach ▶' : 'Finish task ▶', primary: true, onClick: nextLevel }]);
+        } else {
+          const reasons = [];
+          if (!check.okDist) reasons.push(err > 0 ? `you overshot by ${Physics.sig(err, 2)} m — the area under your graph is too big` : `you stopped ${Physics.sig(-err, 2)} m short — the area under your graph is too small`);
+          if (!check.okAcc) reasons.push(`a gradient exceeded ${L.aMax} m s⁻² — make that sloping section last longer`);
+          if (!check.okTime) reasons.push(`the run took ${Physics.fix(check.a.totalTime, 1)} s, over the ${L.tMax} s limit`);
+          UI.modal('Approach aborted', el('div', null,
+            el('p', { html: `Because ${reasons.join(', and ')}.` }),
+            el('p.small.muted', { html: 'Area of the whole shape = ½·t₁·v + t₂·v + ½·t₃·v. Adjust and try again — attempts are free.' })
+          ), [{ label: 'Adjust profile', primary: true }]);
+          refresh();
+        }
+      }
+
+      function nextLevel() {
+        level++;
+        if (level >= LEVELS.length) {
+          run.award(marks, LEVELS.length);
+          resolve();
+          return;
+        }
+        buildControls();
+      }
+
+      function buildControls() {
+        const L = LEVELS[level];
+        panel.innerHTML = '';
+        status = el('div.chips');
+        sliders = {
+          v:  UI.slider({ label: 'Cruise velocity v', min: 0, max: L.vCap, step: 0.5, value: Math.min(8, L.vCap), unit: 'm s⁻¹', onInput: refresh }),
+          t1: UI.slider({ label: 'Speed-up time t₁', min: 0, max: 20, step: 0.5, value: 5, unit: 's', onInput: refresh }),
+          t2: UI.slider({ label: 'Cruise time t₂',   min: 0, max: 30, step: 0.5, value: 5, unit: 's', onInput: refresh }),
+          t3: UI.slider({ label: 'Slow-down time t₃', min: 0, max: 20, step: 0.5, value: 5, unit: 's', onInput: refresh })
+        };
+        panel.append(
+          el('div.eyebrow', null, `Approach ${level + 1} of ${LEVELS.length}`),
+          el('p.small', { html: `<strong>${L.note}</strong><br>Dock at <strong>${L.target} m</strong>. Hull limit <strong>${L.aMax} m s⁻²</strong>. Finish inside <strong>${L.tMax} s</strong>, at rest.` }),
+          status,
+          sliders.v.wrap, sliders.t1.wrap, sliders.t2.wrap, sliders.t3.wrap,
+          launchBtn
+        );
+        refresh();
+      }
+
+      const launchBtn = el('button.btn.btn--primary.btn--wide', { type: 'button', onClick: launch }, '🚀 Fly this profile');
+      buildControls();
+    });
+  }
+
+  /** Velocity at time t on a piecewise-linear profile. */
+  function velocityAt(a, t) {
+    const pts = a.pts;
+    for (let i = 1; i < pts.length; i++) {
+      if (t <= pts[i].t) {
+        const span = pts[i].t - pts[i - 1].t;
+        if (span <= 0) return pts[i].v;
+        const f = (t - pts[i - 1].t) / span;
+        return pts[i - 1].v + (pts[i].v - pts[i - 1].v) * f;
+      }
+    }
+    return pts[pts.length - 1].v;
+  }
+
+  /** The profile truncated at time t, so its area is the displacement so far. */
+  function clipProfile(pts, t) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (pts[i].t <= t) { out.push(pts[i]); continue; }
+      const prev = pts[i - 1];
+      if (!prev) break;
+      const f = (t - prev.t) / (pts[i].t - prev.t);
+      out.push({ t, v: prev.v + (pts[i].v - prev.v) * f });
+      break;
+    }
+    if (out.length < 2) out.push({ t, v: pts[0].v });
+    return out;
+  }
+
+  /* ------------------------------ task 2: telemetry ---------------------- */
+
+  /** A three-phase graph whose last phase may dip below the axis. */
+  function makeTelemetry() {
+    const v1 = 2 * (2 + Math.floor(Math.random() * 6));        // 4–14
+    const t1 = 2 + Math.floor(Math.random() * 4);              // 2–5
+    const t2 = 2 + Math.floor(Math.random() * 6);              // 2–7
+    const t3 = 2 + Math.floor(Math.random() * 4);
+    const dipsBelow = Math.random() < 0.5;
+    const v3 = dipsBelow ? -v1 / 2 : 0;
+    const pts = [
+      { t: 0, v: 0 },
+      { t: t1, v: v1 },
+      { t: t1 + t2, v: v1 },
+      { t: t1 + t2 + t3, v: v3 }
+    ];
+    return { pts, v1, t1, t2, t3, v3 };
+  }
+
+  function telemetry(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(1, 3);
+      run.brief('Task 2 — <strong>Telemetry.</strong> This is the graph the ship actually flew. Read it: gradients give accelerations, areas give displacements. Watch for any part below the axis.');
+
+      const T = makeTelemetry();
+      const { cnv, ctx, w, h } = UI.canvas(540, 340);
+      drawVT(ctx, w, h, T.pts, {});
+      run.stage.append(el('div.canvas-wrap', null, cnv));
+
+      const tEnd = T.pts[3].t;
+      const s = Physics.areaUnder(T.pts);
+      const d = Physics.distanceUnder(T.pts);
+      const a1 = T.v1 / T.t1;
+      const a3 = (T.v3 - T.v1) / T.t3;
+
+      run.stage.append(el('div.panel.mt', null,
+        el('div.eyebrow', null, 'Flight phases'),
+        el('table.data', { html: `
+          <tr><th>Phase</th><th>From</th><th>To</th><th>v at start</th><th>v at end</th></tr>
+          <tr><td>1</td><td class="num">0 s</td><td class="num">${T.t1} s</td><td class="num">0</td><td class="num">${T.v1}</td></tr>
+          <tr><td>2</td><td class="num">${T.t1} s</td><td class="num">${T.t1 + T.t2} s</td><td class="num">${T.v1}</td><td class="num">${T.v1}</td></tr>
+          <tr><td>3</td><td class="num">${T.t1 + T.t2} s</td><td class="num">${tEnd} s</td><td class="num">${T.v1}</td><td class="num">${T.v3}</td></tr>` })
+      ));
+
+      const qs = [
+        {
+          type: 'num', badge: 'gradient',
+          stem: 'Determine the <strong>acceleration in phase 1</strong>.',
+          answer: a1, unit: 'm s⁻²', tol: 0.03,
+          hint: 'Gradient = Δv / Δt.',
+          work: `a = Δv/Δt = (${T.v1} − 0) / ${T.t1} = ${Physics.sig(a1, 3)} m s⁻²`
+        },
+        {
+          type: 'num', badge: 'gradient',
+          stem: 'Determine the <strong>acceleration in phase 3</strong>. Include the sign.',
+          answer: a3, unit: 'm s⁻²', tol: 0.03, absTol: 0.05,
+          work: `a = (${T.v3} − ${T.v1}) / ${T.t3} = ${Physics.sig(a3, 3)} m s⁻²\nNegative means "directed in the negative direction", not automatically "slowing".`
+        },
+        {
+          type: 'num', badge: 'areahunter',
+          stem: 'Determine the <strong>total displacement</strong> over the whole ' + tEnd + ' s.',
+          answer: s, unit: 'm', tol: 0.03,
+          hint: T.v3 < 0 ? 'Part of phase 3 is below the axis — that area is negative.' : 'Split it into a triangle, a rectangle and a triangle.',
+          work: `Phase 1: ½ × ${T.t1} × ${T.v1} = ${Physics.sig(T.t1 * T.v1 / 2, 3)} m\n`
+              + `Phase 2: ${T.t2} × ${T.v1} = ${Physics.sig(T.t2 * T.v1, 3)} m\n`
+              + `Phase 3: ${Physics.sig(((T.v1 + T.v3) / 2) * T.t3, 3)} m${T.v3 < 0 ? '  (the part below the axis is negative)' : ''}\n`
+              + `Total displacement = ${Physics.sig(s, 4)} m`
+        },
+        {
+          type: 'num',
+          stem: 'Determine the <strong>average velocity</strong> for the whole flight.',
+          answer: s / tEnd, unit: 'm s⁻¹', tol: 0.04,
+          work: `average velocity = total displacement ÷ total time = ${Physics.sig(s, 4)} ÷ ${tEnd} = ${Physics.sig(s / tEnd, 3)} m s⁻¹`
+              + (T.v3 < 0 ? `\nNote the distance is ${Physics.sig(d, 4)} m, which is larger — areas below the axis add to the distance but subtract from the displacement.` : '')
+        }
+      ];
+
+      Shell.askAll(run.side, qs, { title: 'Telemetry read-out', xp: 30 }).then(correct => {
+        run.award(correct, qs.length);
+        resolve();
+      });
+    });
+  }
+
+  /* ------------------------------ zone entry ----------------------------- */
+
+  async function render(root) {
+    const run = Shell.zone(root, META);
+    await docking(run);
+    await telemetry(run);
+
+    run.clear();
+    run.setStep(2, 3);
+    run.brief('Task 3 — <strong>Flight check.</strong> The graph-reading traps that catch most candidates.');
+    run.stage.append(el('div.panel', null,
+      el('div.eyebrow', null, 'S2 key ideas'),
+      el('ul.tight', { html: `
+        <li>An s–t graph is <strong>not a picture of the path</strong>.</li>
+        <li>Instantaneous velocity = gradient of the <strong>tangent</strong>.</li>
+        <li>Area under v–t = displacement; below the axis it is negative.</li>
+        <li>Area under a–t = <strong>Δv</strong>; add u to get v.</li>
+        <li>A flat v–t line means constant velocity, not stopped.</li>` })
+    ));
+
+    const qs = Questions.sample(Questions.banks.s2, 4);
+    const correct = await Shell.askAll(run.side, qs, { title: 'Licence check', xp: 30 });
+    run.award(correct, qs.length);
+    run.setStep(3, 3);
+    await run.finish();
+  }
+
+  return { META, render, drawVT };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   zone3.js — S3 Equations of motion: "Reactor Core"
+   Task 1  Equation select — list s,u,v,a,t; the quantity you neither have nor
+           want tells you which of the four booklet equations to fire.
+   Task 2  Capsule catch  — free fall with a sign convention, under a clock.
+   Task 3  Flight check.
+   ========================================================================== */
+
+const Zone3 = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#ffc24a';
+  const G = Physics.G;
+
+  const META = {
+    id: 'z3',
+    tag: 'Zone 3 · S3',
+    name: 'Reactor Core',
+    subtitle: 'The four equations of motion, sign conventions and free fall',
+    accent: ACCENT,
+    steps: 3,
+    praise: 'Core stable. You pick the right equation before you touch the calculator.',
+    revise: 'Re-read S3 steps 4–6: list s, u, v, a, t, find the quantity that is missing, and pick the equation without it.',
+    recap: [
+      'The equations apply to <strong>uniform acceleration</strong> along a straight line only.',
+      'Missing t → v² = u² + 2as.  Missing s → v = u + at.  Missing v → s = ut + ½at².  Missing a → s = ((u+v)/2)t.',
+      'State a positive direction and keep it: with up positive, a = −9.81 m s⁻² for the whole flight.',
+      'At the highest point v = 0 but a is still g downwards.'
+    ]
+  };
+
+  /* The four equations exactly as the data booklet prints them (page 6). */
+  const EQUATIONS = [
+    { id: 'noA', text: 's = ((u + v)/2) t', missing: 'a' },
+    { id: 'noS', text: 'v = u + at',        missing: 's' },
+    { id: 'noV', text: 's = ut + ½at²',     missing: 'v' },
+    { id: 'noT', text: 'v² = u² + 2as',     missing: 't' }
+  ];
+
+  const SYMBOL = {
+    s: { name: 'displacement', unit: 'm' },
+    u: { name: 'initial velocity', unit: 'm s⁻¹' },
+    v: { name: 'final velocity', unit: 'm s⁻¹' },
+    a: { name: 'acceleration', unit: 'm s⁻²' },
+    t: { name: 'time', unit: 's' }
+  };
+
+  const SCENARIOS = [
+    { text: 'A rescue shuttle accelerates uniformly along a straight launch rail.', sign: 'Forward is positive.' },
+    { text: 'A supply pod fires its retro-thrusters and slows uniformly on a straight approach.', sign: 'Direction of travel is positive.', braking: true },
+    { text: 'A maglev sled accelerates uniformly down a straight track.', sign: 'Forward is positive.' },
+    { text: 'A survey rover brakes uniformly to a stop on a straight run.', sign: 'Direction of travel is positive.', braking: true }
+  ];
+
+  /** Build a fully consistent s, u, v, a, t set, then hide one and ask for another. */
+  function makeProblem() {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const scenario = Questions.pick(SCENARIOS);
+      const t = 2 + Math.floor(Math.random() * 9);                        // 2–10 s
+      let u, a;
+      if (scenario.braking) {
+        u = 8 + Math.floor(Math.random() * 20);                           // 8–27
+        a = -(u / t) * (Math.random() < 0.5 ? 1 : 0.6);                   // stops, or slows a lot
+      } else {
+        u = Math.random() < 0.4 ? 0 : 2 + Math.floor(Math.random() * 12);
+        a = 0.5 + Math.floor(Math.random() * 8) * 0.5;                    // 0.5–4.0
+      }
+      a = Math.round(a * 4) / 4;
+      const v = Physics.suvat.vFromUAt(u, a, t);
+      const s = Physics.suvat.sFromUAt(u, a, t);
+      if (v < 0 || s <= 1) continue;                                      // keep it physical and readable
+
+      // Hide one quantity; ask for another; the other three are given.
+      const order = ['s', 'v', 'a', 't'];
+      const missing = Questions.pick(order);
+      const target = Questions.pick(order.filter(k => k !== missing));
+      const values = { s, u, v, a, t };
+      const given = ['u', ...order.filter(k => k !== missing && k !== target)];
+      if (given.some(k => !isFinite(values[k]))) continue;
+
+      return { scenario, values, missing, target, given, equation: EQUATIONS.find(e => e.missing === missing) };
+    }
+    // Deterministic fallback: the specimen-paper car from slide 81.
+    return {
+      scenario: { text: 'A car decelerates uniformly until it stops.', sign: 'Direction of travel is positive.' },
+      values: { s: 32, u: 16, v: 0, a: -4, t: 4 },
+      missing: 't', target: 's', given: ['u', 'v', 'a'],
+      equation: EQUATIONS.find(e => e.missing === 't')
+    };
+  }
+
+  function dataTable(problem) {
+    const rows = ['s', 'u', 'v', 'a', 't'].map(k => {
+      const known = problem.given.includes(k);
+      const wanted = k === problem.target;
+      const value = known ? `${Physics.sig(problem.values[k], 3)} ${SYMBOL[k].unit}` : (wanted ? '= ?' : 'not given');
+      const style = wanted ? 'color:#ffc24a;font-weight:700' : (known ? '' : 'color:#5f7190');
+      return `<tr><td class="num" style="${style}">${k}</td><td style="${style}">${SYMBOL[k].name}</td><td class="num" style="${style}">${value}</td></tr>`;
+    }).join('');
+    return el('table.data', { html: `<tr><th>Symbol</th><th>Quantity</th><th>Value</th></tr>${rows}` });
+  }
+
+  /* ------------------------------ task 1 --------------------------------- */
+
+  function equationSelect(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(0, 3);
+      run.brief('Task 1 — <strong>Equation select.</strong> Three of the five quantities are on the console and one is wanted. The fifth — the one you neither have nor want — tells you which equation to fire.');
+
+      const ROUNDS = 3;
+      let round = 0, marks = 0;
+      const MAX = ROUNDS * 2;
+
+      function nextRound() {
+        if (round >= ROUNDS) { run.award(marks, MAX); resolve(); return; }
+        const p = makeProblem();
+        run.clear();
+
+        run.stage.append(el('div.panel', null,
+          el('div.eyebrow', null, `Core cycle ${round + 1} of ${ROUNDS}`),
+          el('p', { html: `<strong>${p.scenario.text}</strong> ${p.scenario.sign}` }),
+          dataTable(p),
+          el('p.small.muted.mt.mb0', { html: `Find the <strong>${SYMBOL[p.target].name}</strong>. Notice which row says <em>not given</em>.` })
+        ));
+
+        const slot = el('div');
+        run.side.append(el('div.panel', null, el('div.eyebrow', null, 'Step 1 — choose the equation'), slot));
+
+        const options = EQUATIONS.map(eq => ({
+          text: `<code>${eq.text}</code>`,
+          why: `This one contains <strong>${eq.missing}</strong>, which is not given here.`
+        }));
+        const answerIndex = EQUATIONS.findIndex(e => e.id === p.equation.id);
+        options[answerIndex].why = undefined;
+
+        UI.ask(slot, {
+          type: 'mcq',
+          badge: 'chooser',
+          stem: `Which equation gets you to <strong>${p.target}</strong> in one step?`,
+          options,
+          answer: answerIndex,
+          work: `${p.missing} is the quantity you neither have nor want, so choose the equation without ${p.missing}:\n${p.equation.text}`
+        }, ({ correct }) => {
+          if (correct) { marks++; Game.addXp(30); }
+          askValue(p);
+        });
+      }
+
+      function askValue(p) {
+        const slot = el('div');
+        run.side.append(el('div.panel', null, el('div.eyebrow', null, 'Step 2 — get the number'), slot));
+        const answer = p.values[p.target];
+        UI.ask(slot, {
+          type: 'num',
+          stem: `Now calculate <strong>${p.target}</strong>, the ${SYMBOL[p.target].name}.`,
+          answer, unit: SYMBOL[p.target].unit, tol: 0.03, absTol: 0.02,
+          hint: `Substitute into ${p.equation.text} — signs included.`,
+          work: workingFor(p)
+        }, ({ correct }) => {
+          if (correct) { marks++; Game.addXp(35); }
+          round++;
+          setTimeout(nextRound, 250);
+        });
+      }
+
+      function workingFor(p) {
+        const V = p.values;
+        const n = k => Physics.sig(V[k], 3);
+        const lines = [`Using ${p.equation.text}:`];
+        switch (p.equation.id) {
+          case 'noT': lines.push(`${n('v')}² = ${n('u')}² + 2(${n('a')})(${n('s')})`); break;
+          case 'noS': lines.push(`${n('v')} = ${n('u')} + (${n('a')})(${n('t')})`); break;
+          case 'noV': lines.push(`${n('s')} = (${n('u')})(${n('t')}) + ½(${n('a')})(${n('t')})²`); break;
+          case 'noA': lines.push(`${n('s')} = ((${n('u')} + ${n('v')})/2)(${n('t')})`); break;
+        }
+        lines.push(`→ ${p.target} = ${Physics.sig(V[p.target], 3)} ${SYMBOL[p.target].unit}`);
+        return lines.join('\n');
+      }
+
+      nextRound();
+    });
+  }
+
+  /* ------------------------------ task 2: capsule catch ------------------ */
+
+  /**
+   * A supply capsule is launched straight up from a platform.  The cadet must
+   * work out WHEN it will pass a catch net on the way down, then arm the net.
+   * Up is positive; a = −g for the whole flight, including at the top.
+   */
+  function capsuleCatch(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(1, 3);
+      run.brief('Task 2 — <strong>Capsule catch.</strong> Take <strong>up as positive</strong>, so a = −9.81 m s⁻² for the whole flight. Work out the answer on paper, arm the net, and watch the capsule prove you right.');
+
+      const ROUNDS = 3;
+      let round = 0, marks = 0;
+
+      function makeDrop() {
+        const u = 12 + Math.floor(Math.random() * 14);        // 12–25 m s⁻¹ up
+        const launchHeight = 0;
+        const apex = (u * u) / (2 * G);
+        // Net somewhere between a third and three-quarters of the way up.
+        const netHeight = Math.round((apex * (0.35 + Math.random() * 0.4)) * 2) / 2;
+        // Times when the capsule is at netHeight: up first, then down.
+        const disc = Math.sqrt(u * u - 2 * G * netHeight);
+        const tUp = (u - disc) / G;
+        const tDown = (u + disc) / G;
+        return { u, launchHeight, apex, netHeight, tUp, tDown, tApex: u / G, total: (2 * u) / G };
+      }
+
+      function nextRound() {
+        if (round >= ROUNDS) { run.award(marks, ROUNDS * 2); resolve(); return; }
+        const D = makeDrop();
+        run.clear();
+
+        const { cnv, ctx, w, h } = UI.canvas(400, 420);
+        run.stage.append(el('div.canvas-wrap', null, cnv));
+        const readouts = UI.readout({
+          t: { label: 'clock' }, y: { label: 'height' }, v: { label: 'velocity' }, a: { label: 'acceleration', value: '−9.81 m s⁻²' }
+        });
+        run.stage.append(readouts.wrap);
+
+        let simT = 0, running = false, armedAt = null, caught = false;
+        const topOfScale = D.apex * 1.18;
+
+        function draw() {
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = '#050a12'; ctx.fillRect(0, 0, w, h);
+          const groundY = h - 40;
+          const Y = metres => groundY - (metres / topOfScale) * (groundY - 30);
+
+          // Platform and height scale
+          ctx.strokeStyle = '#24344f'; ctx.lineWidth = 1;
+          ctx.fillStyle = '#5f7190'; ctx.font = '11px ui-monospace, monospace';
+          for (let m = 0; m <= topOfScale; m += 5) {
+            ctx.beginPath(); ctx.moveTo(52, Y(m)); ctx.lineTo(w - 14, Y(m)); ctx.stroke();
+            ctx.fillText(`${m} m`, 10, Y(m) + 4);
+          }
+          ctx.fillStyle = '#16233b';
+          ctx.fillRect(52, groundY, w - 66, 40);
+
+          // Catch net
+          ctx.strokeStyle = armedAt !== null ? '#5ce08a' : ACCENT;
+          ctx.lineWidth = 3;
+          ctx.setLineDash(armedAt !== null ? [] : [6, 5]);
+          ctx.beginPath(); ctx.moveTo(w / 2 - 44, Y(D.netHeight)); ctx.lineTo(w / 2 + 44, Y(D.netHeight)); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = armedAt !== null ? '#5ce08a' : ACCENT;
+          ctx.font = '700 11px ui-monospace, monospace';
+          ctx.fillText(`NET  ${D.netHeight} m`, w / 2 + 50, Y(D.netHeight) + 4);
+
+          // Capsule
+          const y = D.u * simT - 0.5 * G * simT * simT;
+          const v = D.u - G * simT;
+          const cy = Y(Math.max(0, y));
+          ctx.fillStyle = caught ? '#5ce08a' : '#e8eef8';
+          ctx.beginPath(); ctx.arc(w / 2, cy, 9, 0, Math.PI * 2); ctx.fill();
+          // Velocity arrow: shows v reversing while a never does.
+          if (running && !caught) {
+            ctx.strokeStyle = '#2fd6c3'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(w / 2, cy); ctx.lineTo(w / 2, cy - v * 2.2); ctx.stroke();
+          }
+
+          readouts.set('t', `${Physics.fix(simT, 2)} s`);
+          readouts.set('y', `${Physics.fix(Math.max(0, y), 1)} m`);
+          readouts.set('v', `${Physics.fix(v, 1)} m s⁻¹`);
+        }
+
+        draw();
+
+        const qPanel = el('div.panel');
+        run.side.append(qPanel);
+
+        // Step 1: the apex — the classic "v = 0 but a = g" check.
+        const apexSlot = el('div');
+        qPanel.append(el('div.eyebrow', null, `Catch ${round + 1} of ${ROUNDS} — step 1`), apexSlot);
+        UI.ask(apexSlot, {
+          type: 'num',
+          badge: 'topofflight',
+          stem: `The capsule leaves the platform at <strong>${D.u} m s⁻¹ upwards</strong>. Calculate its <strong>maximum height</strong> above the platform.`,
+          answer: D.apex, unit: 'm', tol: 0.03,
+          hint: 'At the top v = 0. No time is given, so which equation has no t?',
+          work: `v² = u² + 2as with v = 0, a = −9.81:\n0 = ${D.u}² + 2(−9.81)s\ns = ${D.u * D.u} / 19.62 = ${Physics.sig(D.apex, 3)} m\nAt that instant v = 0 but a is still 9.81 m s⁻² downwards.`
+        }, ({ correct }) => {
+          if (correct) { marks++; Game.addXp(35); }
+          askNetTime();
+        });
+
+        function askNetTime() {
+          const slot = el('div');
+          qPanel.append(el('div.eyebrow.mt', null, 'Step 2 — arm the net'), slot);
+          UI.ask(slot, {
+            type: 'num',
+            stem: `The net sits at <strong>${D.netHeight} m</strong>. At what time after launch does the capsule pass it <strong>on the way down</strong>?`,
+            answer: D.tDown, unit: 's', tol: 0.03, absTol: 0.03,
+            hint: 'Use s = ut + ½at² with s = the net height. Two roots: the larger one is the way down.',
+            work: `${D.netHeight} = ${D.u}t − 4.905t²\n4.905t² − ${D.u}t + ${D.netHeight} = 0\nt = ${Physics.sig(D.tUp, 3)} s (going up) or t = ${Physics.sig(D.tDown, 3)} s (coming down)\nThe net is armed for the larger root.`
+          }, ({ correct }) => {
+            if (correct) { marks++; Game.addXp(45); }
+            armedAt = D.tDown;
+            runCatch();
+          });
+        }
+
+        function runCatch() {
+          running = true;
+          const btn = el('button.btn.btn--primary.btn--wide.mt', { type: 'button', disabled: true }, 'Launching…');
+          qPanel.append(btn);
+          const anim = Zone.loop(dt => {
+            simT += dt * 0.9;
+            const y = D.u * simT - 0.5 * G * simT * simT;
+            if (armedAt !== null && simT >= armedAt && !caught) {
+              caught = true;
+              simT = armedAt;
+              anim.stop();
+              draw();
+              btn.disabled = false;
+              btn.textContent = round < ROUNDS - 1 ? 'Next catch ▶' : 'Finish task ▶';
+              btn.onclick = () => { round++; nextRound(); };
+              UI.toast('Capsule caught ✓', 1800);
+              return;
+            }
+            if (y < 0) { anim.stop(); }
+            draw();
+          });
+        }
+      }
+
+      nextRound();
+    });
+  }
+
+  /* ------------------------------ zone entry ----------------------------- */
+
+  async function render(root) {
+    const run = Shell.zone(root, META);
+    await equationSelect(run);
+    await capsuleCatch(run);
+
+    run.clear();
+    run.setStep(2, 3);
+    run.brief('Task 3 — <strong>Flight check.</strong>');
+    run.stage.append(el('div.panel', null,
+      el('div.eyebrow', null, 'Data booklet, page 6'),
+      el('table.data', { html: `
+        <tr><th>Equation</th><th>Leaves out</th></tr>
+        <tr><td class="num">s = ((u + v)/2) t</td><td class="num">a</td></tr>
+        <tr><td class="num">v = u + at</td><td class="num">s</td></tr>
+        <tr><td class="num">s = ut + ½at²</td><td class="num">v</td></tr>
+        <tr><td class="num">v² = u² + 2as</td><td class="num">t</td></tr>` }),
+      el('p.small.muted.mt.mb0', { html: 'The booklet gives magnitudes only — <strong>you</strong> supply the signs.' })
+    ));
+
+    const qs = Questions.sample(Questions.banks.s3, 4);
+    const correct = await Shell.askAll(run.side, qs, { title: 'Licence check', xp: 30 });
+    run.award(correct, qs.length);
+    run.setStep(3, 3);
+    await run.finish();
+  }
+
+  return { META, render };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   zone4.js — S4 Projectile motion: "Launch Bay"
+   A rescue-line launcher. Horizontal and vertical motion are independent, so
+   level 1 fires a line AND drops a marker at the same instant: they hit the
+   water together, which is the Shoot-n-Drop demonstration from the deck.
+   Task 1  Four launches — horizontal, above, below the horizontal, and over a wall.
+   Task 2  Flight check.
+   ========================================================================== */
+
+const Zone4 = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#5ce08a';
+  const G = Physics.G;
+
+  const META = {
+    id: 'z4',
+    tag: 'Zone 4 · S4',
+    name: 'Launch Bay',
+    subtitle: 'Projectiles: two columns, one clock',
+    accent: ACCENT,
+    steps: 2,
+    praise: 'Every line on target. Resolve, two columns, time from the vertical.',
+    revise: 'Re-read S4 steps 4–7: resolve the launch velocity, write a horizontal and a vertical column, and let the time link them.',
+    recap: [
+      'a<sub>x</sub> = 0 so v<sub>x</sub> is constant; a<sub>y</sub> = g downwards the whole flight.',
+      'Time is the only quantity the two columns share — usually find it from the vertical.',
+      'At the top v<sub>y</sub> = 0 but v = v<sub>x</sub>, and a is still g downwards.',
+      '45° gives the greatest range only on level ground with no air resistance.'
+    ]
+  };
+
+  /* ------------------------------ levels --------------------------------- */
+
+  const LEVELS = [
+    {
+      name: 'Line to the raft',
+      brief: 'A raft is adrift below the cliff. Fire the rescue line <strong>horizontally</strong> from the cliff edge so it lands on the raft. A marker is released from your hand at the same instant — watch when it lands.',
+      height: 30, angle: 0, angleLocked: true,
+      speedRange: [4, 30], targetX: null, tol: 2.2,
+      showDrop: true,
+      question: s => ({
+        type: 'num', badge: 'independence',
+        stem: `The line was fired horizontally at <strong>${Physics.sig(s.u, 3)} m s⁻¹</strong> from <strong>${s.h} m</strong> up. Calculate the <strong>time of flight</strong>.`,
+        answer: s.flight.timeOfFlight, unit: 's', tol: 0.04,
+        hint: 'Use the vertical column only. u_y = 0.',
+        work: `Vertical (down positive): ${s.h} = ½ × 9.81 × t²\nt = √(${(2 * s.h).toFixed(1)} / 9.81) = ${Physics.sig(s.flight.timeOfFlight, 3)} s\n`
+            + `The marker, dropped from rest, takes exactly the same time — the horizontal speed changes nothing.`
+      })
+    },
+    {
+      name: 'Over the ridge',
+      brief: 'A stranded team is on flat ground across the valley. Launch <strong>above the horizontal</strong> from ground level and land the pack on their marker.',
+      height: 0, angle: 40, angleLocked: false, angleRange: [10, 80],
+      speedRange: [8, 35], targetX: null, tol: 2.5,
+      question: s => ({
+        type: 'num',
+        stem: `You launched at <strong>${Physics.sig(s.u, 3)} m s⁻¹</strong>, <strong>${s.angle}°</strong> above the horizontal. Calculate the <strong>maximum height</strong> reached.`,
+        answer: s.flight.maxHeight, unit: 'm', tol: 0.05,
+        hint: 'Resolve u_y = u sin θ, then use v_y = 0 at the top.',
+        work: `u_y = ${Physics.sig(s.u, 3)} sin ${s.angle}° = ${Physics.sig(s.flight.uy, 3)} m s⁻¹\n`
+            + `0 = u_y² − 2gH  →  H = ${Physics.sig(s.flight.uy, 3)}² / 19.62 = ${Physics.sig(s.flight.maxHeight, 3)} m`
+      })
+    },
+    {
+      name: 'Down to the deck',
+      brief: 'The pad is at the foot of the tower. Launch <strong>below the horizontal</strong> — the vertical motion now starts with a downward component, so the time needs the quadratic formula.',
+      height: 25, angle: -20, angleLocked: false, angleRange: [-55, -5],
+      speedRange: [6, 28], targetX: null, tol: 2.2,
+      question: s => ({
+        type: 'num',
+        stem: `Launched at <strong>${Physics.sig(s.u, 3)} m s⁻¹</strong>, <strong>${Math.abs(s.angle)}° below</strong> the horizontal, from <strong>${s.h} m</strong> up. Calculate the <strong>speed on landing</strong>.`,
+        answer: s.flight.landingSpeed, unit: 'm s⁻¹', tol: 0.05,
+        hint: 'Find v_y at landing, then recombine: v = √(v_x² + v_y²).',
+        work: `v_x = ${Physics.sig(s.flight.ux, 3)} m s⁻¹ (constant)\n`
+            + `v_y at landing = ${Physics.sig(Math.abs(s.flight.uy) + G * s.flight.timeOfFlight, 3)} m s⁻¹ downwards\n`
+            + `v = √(v_x² + v_y²) = ${Physics.sig(s.flight.landingSpeed, 3)} m s⁻¹, at ${Physics.sig(Math.abs(s.flight.landingAngle), 2)}° below the horizontal`
+      })
+    },
+    {
+      name: 'Clear the mast',
+      brief: 'A mast stands between you and the landing zone. The pack must pass <strong>over</strong> the mast and still land on the marker. Two conditions, one launch.',
+      height: 0, angle: 55, angleLocked: false, angleRange: [20, 80],
+      speedRange: [10, 40], targetX: null, tol: 3.0,
+      obstacle: true,
+      question: s => ({
+        type: 'mcq', badge: 'topofflight',
+        stem: 'At the highest point of that flight, what was the pack doing?',
+        options: [
+          { text: `Moving at ${Physics.sig(s.flight.ux, 2)} m s⁻¹ horizontally, accelerating at 9.81 m s⁻² downwards` },
+          { text: 'Momentarily at rest, with zero acceleration', why: 'Only v<sub>y</sub> is zero. The horizontal velocity never changed, and gravity never switched off.' },
+          { text: `Moving at ${Physics.sig(s.u, 2)} m s⁻¹ horizontally`, why: 'That is the full launch speed. At the top only the horizontal component remains: u cos θ.' },
+          { text: 'Momentarily at rest, accelerating at 9.81 m s⁻² downwards', why: 'v<sub>y</sub> = 0, but v<sub>x</sub> = u cos θ is unchanged, so the pack is still moving.' }
+        ],
+        answer: 0,
+        work: `v_x = u cos θ = ${Physics.sig(s.u, 3)} cos ${s.angle}° = ${Physics.sig(s.flight.ux, 3)} m s⁻¹, constant all flight.\n`
+            + `At the top v_y = 0, so v = v_x. The acceleration is g downwards everywhere.`
+      })
+    }
+  ];
+
+  /** Choose a target the player can actually reach with the sliders given. */
+  function placeTarget(level) {
+    const [sMin, sMax] = level.speedRange;
+    const angle = level.angleLocked ? level.angle : (level.angleRange[0] + level.angleRange[1]) / 2;
+    const near = Physics.projectile(sMin * 1.25, angle, level.height).range;
+    const far = Physics.projectile(sMax * 0.85, angle, level.height).range;
+    const lo = Math.min(near, far), hi = Math.max(near, far);
+    const x = lo + Math.random() * (hi - lo);
+    return Math.max(6, Math.round(x * 2) / 2);
+  }
+
+  /* ------------------------------ rendering ------------------------------ */
+
+  function makeView(level, targetX, obstacle) {
+    const maxX = Math.max(targetX * 1.25, 30);
+    const maxY = Math.max(level.height + 20, 30);
+    return { maxX, maxY };
+  }
+
+  function drawScene(ctx, w, h, opts) {
+    const { level, targetX, view, path, marker, projectilePos, dropPos, strobe, obstacle } = opts;
+    const pad = { l: 34, r: 18, t: 18, b: 34 };
+    const X = mx => pad.l + (mx / view.maxX) * (w - pad.l - pad.r);
+    const Y = my => h - pad.b - (my / view.maxY) * (h - pad.t - pad.b);
+
+    ctx.clearRect(0, 0, w, h);
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#0a1424');
+    sky.addColorStop(1, '#050a12');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // Distance scale along the ground
+    ctx.strokeStyle = 'rgba(36,52,79,.8)';
+    ctx.fillStyle = '#5f7190';
+    ctx.font = '10px ui-monospace, monospace';
+    ctx.lineWidth = 1;
+    const step = view.maxX > 120 ? 20 : view.maxX > 60 ? 10 : 5;
+    const yStep = view.maxY > 120 ? 20 : view.maxY > 60 ? 10 : 5;
+    for (let m = 0; m <= view.maxX; m += step) {
+      ctx.beginPath(); ctx.moveTo(X(m), pad.t); ctx.lineTo(X(m), Y(0)); ctx.stroke();
+    }
+    for (let m = 0; m <= view.maxY; m += yStep) {
+      ctx.beginPath(); ctx.moveTo(pad.l, Y(m)); ctx.lineTo(w - pad.r, Y(m)); ctx.stroke();
+    }
+
+    // Ground and the launch platform
+    ctx.fillStyle = '#16233b';
+    ctx.fillRect(pad.l, Y(0), w - pad.l - pad.r, h - pad.b - Y(0) + 20);
+    if (level.height > 0) {
+      ctx.fillStyle = '#1d2c48';
+      ctx.fillRect(pad.l, Y(level.height), X(4) - pad.l, Y(0) - Y(level.height));
+    }
+
+    // Scale labels go on last, so the ground fill cannot bury them.
+    ctx.fillStyle = '#5f7190';
+    ctx.font = '10px ui-monospace, monospace';
+    for (let m = 0; m <= view.maxX; m += step) ctx.fillText(`${m}`, X(m) - 5, h - pad.b + 14);
+    for (let m = yStep; m <= view.maxY; m += yStep) ctx.fillText(`${m}`, 4, Y(m) + 3);
+
+    // Mast obstacle
+    if (obstacle) {
+      ctx.fillStyle = '#ff6b81';
+      ctx.fillRect(X(obstacle.x) - 3, Y(obstacle.height), 6, Y(0) - Y(obstacle.height));
+      ctx.font = '700 10px ui-monospace, monospace';
+      ctx.fillText(`${obstacle.height} m`, X(obstacle.x) - 12, Y(obstacle.height) - 6);
+    }
+
+    // Target marker
+    ctx.fillStyle = '#ffc24a';
+    ctx.beginPath();
+    ctx.moveTo(X(targetX), Y(0));
+    ctx.lineTo(X(targetX) - 8, Y(0) - 14);
+    ctx.lineTo(X(targetX) + 8, Y(0) - 14);
+    ctx.closePath(); ctx.fill();
+    ctx.font = '700 10px ui-monospace, monospace';
+    ctx.fillText(`${targetX} m`, X(targetX) - 14, Y(0) - 20);
+
+    // Flight path so far
+    if (path && path.length > 1) {
+      ctx.strokeStyle = 'rgba(92,224,138,.85)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      path.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
+      ctx.stroke();
+    }
+
+    // Strobe dots: equal horizontal gaps, growing vertical gaps (deck slides 104–105)
+    if (strobe) {
+      strobe.forEach(p => {
+        ctx.fillStyle = '#2fd6c3';
+        ctx.beginPath(); ctx.arc(X(p.x), Y(p.y), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,194,74,.55)';
+        ctx.fillRect(X(p.x) - 1, Y(p.y), 2, Y(0) - Y(p.y));
+      });
+    }
+
+    // The projectile, and the simultaneously dropped marker
+    if (dropPos) {
+      ctx.fillStyle = '#a98bff';
+      ctx.beginPath(); ctx.arc(X(1.5), Y(dropPos.y), 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(169,139,255,.45)';
+      ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(1.5), Y(dropPos.y)); ctx.lineTo(X(view.maxX), Y(dropPos.y)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (projectilePos) {
+      ctx.fillStyle = '#e8eef8';
+      ctx.beginPath(); ctx.arc(X(projectilePos.x), Y(projectilePos.y), 6, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Launcher
+    ctx.strokeStyle = '#93a4c0';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(level.height));
+    ctx.lineTo(X(0) + 20 * Math.cos(Physics.rad(opts.aim)), Y(level.height) - 20 * Math.sin(Physics.rad(opts.aim)));
+    ctx.stroke();
+
+    ctx.fillStyle = '#5f7190';
+    ctx.font = '600 10px ui-monospace, monospace';
+    ctx.fillText('x / m', w - pad.r - 24, h - 8);
+  }
+
+  /* ------------------------------ task 1 --------------------------------- */
+
+  function launches(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(0, 2);
+
+      let level = 0, marks = 0;
+      const MAX = LEVELS.length * 2;
+
+      function startLevel() {
+        if (level >= LEVELS.length) { run.award(marks, MAX); resolve(); return; }
+        const L = LEVELS[level];
+        run.clear();
+        run.brief(`Launch ${level + 1} of ${LEVELS.length} — <strong>${L.name}.</strong> ${L.brief}`);
+
+        const targetX = placeTarget(L);
+        const obstacle = L.obstacle
+          ? { x: Math.round(targetX * 0.45), height: Math.round(Physics.projectile((L.speedRange[0] + L.speedRange[1]) / 2, 50, 0).maxHeight * 0.45) }
+          : null;
+        const view = makeView(L, targetX);
+
+        const { cnv, ctx, w, h } = UI.canvas(560, 360);
+        run.stage.append(el('div.canvas-wrap', null, cnv));
+        const readouts = UI.readout({
+          ux: { label: 'uₓ = u cos θ' },
+          uy: { label: 'u_y = u sin θ' },
+          T:  { label: 'time of flight' },
+          R:  { label: 'predicted range' }
+        });
+        run.stage.append(readouts.wrap);
+
+        const panel = el('div.panel');
+        run.side.append(panel);
+
+        const speed = UI.slider({
+          label: 'Launch speed u', min: L.speedRange[0], max: L.speedRange[1], step: 0.5,
+          value: (L.speedRange[0] + L.speedRange[1]) / 2, unit: 'm s⁻¹', onInput: refresh
+        });
+        const angle = L.angleLocked ? null : UI.slider({
+          label: 'Launch angle θ', min: L.angleRange[0], max: L.angleRange[1], step: 1,
+          value: L.angle, unit: '°', onInput: refresh
+        });
+
+        let attempts = 0, firing = false, shot = null, lastStrobe = null;
+        const status = el('div.chips');
+        const fireBtn = el('button.btn.btn--primary.btn--wide.mt', { type: 'button', onClick: fire }, '🎯 Fire');
+
+        panel.append(
+          el('div.eyebrow', null, `Launch bay ${level + 1} of ${LEVELS.length}`),
+          el('p.small', { html: `Target at <strong>${targetX} m</strong>, from a launch height of <strong>${L.height} m</strong>.${obstacle ? ` The mast is <strong>${obstacle.height} m</strong> tall at <strong>${obstacle.x} m</strong>.` : ''} Land within <strong>±${L.tol} m</strong>.` }),
+          status,
+          speed.wrap,
+          angle ? angle.wrap : el('p.small.muted', { html: 'Angle locked at <strong>0°</strong> — a horizontal launch.' }),
+          fireBtn
+        );
+
+        function currentAim() {
+          return { u: speed.value, angle: angle ? angle.value : L.angle };
+        }
+
+        function refresh() {
+          const { u, angle: th } = currentAim();
+          const f = Physics.projectile(u, th, L.height);
+          readouts.set('ux', `${Physics.fix(f.ux, 2)} m s⁻¹`);
+          readouts.set('uy', `${Physics.fix(f.uy, 2)} m s⁻¹`);
+          readouts.set('T', `${Physics.fix(f.timeOfFlight, 2)} s`);
+          readouts.set('R', shot ? `${Physics.fix(shot.flight.range, 1)} m` : '—');
+          status.innerHTML = '';
+          status.append(el('span.chip', null, `attempt ${attempts + 1}`));
+          if (attempts > 0 && shot) {
+            const miss = shot.flight.range - targetX;
+            status.append(el('span.chip.chip--gold', null, miss > 0 ? `last shot ${Physics.sig(miss, 2)} m long` : `last shot ${Physics.sig(-miss, 2)} m short`));
+          }
+          if (!firing) {
+            // Keep the last strobe on screen so the cadet can study the shot.
+            drawScene(ctx, w, h, { level: L, targetX, view, aim: th, obstacle, path: null, strobe: lastStrobe, projectilePos: null, dropPos: null });
+          }
+        }
+
+        function fire() {
+          if (firing) return;
+          firing = true;
+          attempts++;
+          lastStrobe = null;
+          fireBtn.disabled = true;
+          const { u, angle: th } = currentAim();
+          const flight = Physics.projectile(u, th, L.height);
+          shot = { u, angle: th, h: L.height, flight };
+
+          const path = [];
+          let t = 0;
+          // Did the pack pass over the mast?  Only meaningful if it got that far.
+          const clearedMast = !obstacle
+            || flight.range < obstacle.x
+            || flight.at(obstacle.x / flight.ux).y > obstacle.height;
+          const anim = Zone.loop(dt => {
+            t = Math.min(t + dt * 0.85, flight.timeOfFlight);
+            const p = flight.at(t);
+            path.push({ x: p.x, y: p.y });
+            const drop = L.showDrop ? { y: Math.max(0, L.height - 0.5 * G * t * t) } : null;
+            drawScene(ctx, w, h, {
+              level: L, targetX, view, aim: th, obstacle,
+              path, projectilePos: p, dropPos: drop
+            });
+            readouts.set('R', `${Physics.fix(p.x, 1)} m`);
+            if (t >= flight.timeOfFlight) {
+              anim.stop();
+              firing = false;
+              land(flight, clearedMast, th);
+            }
+          });
+        }
+
+        function land(flight, clearedMast, th) {
+          const miss = flight.range - targetX;
+          const onTarget = Math.abs(miss) <= L.tol && clearedMast;
+
+          // Strobe the finished path: equal horizontal steps, growing vertical ones.
+          lastStrobe = [];
+          for (let t = 0; t <= flight.timeOfFlight + 1e-9; t += flight.timeOfFlight / 12) lastStrobe.push(flight.at(t));
+
+          refresh();
+          fireBtn.disabled = false;
+
+          if (!onTarget) {
+            const why = (!clearedMast && flight.range >= obstacle.x)
+              ? `The pack struck the mast. It needs more height at x = ${obstacle.x} m — try a steeper angle or more speed.`
+              : (miss > 0
+                ? `Overshot by ${Physics.sig(miss, 2)} m. ${L.angleLocked ? 'The angle is fixed, so the only lever is the launch speed: range = u\u2093 \u00d7 T, and T is set entirely by the drop height.' : 'Less speed, or an angle further from 45\u00b0, shortens the range.'}`
+                : `${Physics.sig(-miss, 2)} m short. ${L.angleLocked ? 'The time of flight cannot change \u2014 only u\u2093 can. Increase the launch speed.' : 'More speed, or an angle nearer 45\u00b0, lengthens it.'}`);
+            UI.modal('Missed', el('div', null,
+              el('p', { html: why }),
+              el('p.small.muted', { html: `That shot: u<sub>x</sub> = ${Physics.sig(flight.ux, 3)} m s⁻¹, u<sub>y</sub> = ${Physics.sig(flight.uy, 3)} m s⁻¹, time of flight ${Physics.sig(flight.timeOfFlight, 3)} s, range = u<sub>x</sub> × T = ${Physics.sig(flight.range, 3)} m.` })
+            ), [{ label: 'Re-aim', primary: true }]);
+            return;
+          }
+
+          // On target. Award, then ask the question that tests the maths behind it.
+          const firstTry = attempts === 1;
+          marks++;
+          Game.addXp(firstTry ? 110 : 70);
+          if (L.showDrop) Game.awardBadge('independence');
+
+          const body = el('div', null,
+            el('p', { html: `Landed <strong>${Physics.sig(Math.abs(miss), 2)} m</strong> from the marker${firstTry ? ' — first attempt.' : `, on attempt ${attempts}.`}` })
+          );
+          if (L.showDrop) {
+            body.append(el('p.small.muted', { html: `The dropped marker (violet) hit the water at the <strong>same instant</strong>, ${Physics.sig(flight.timeOfFlight, 3)} s after release. Horizontal speed does nothing to the vertical motion — that is the Shoot-n-Drop result.` }));
+          }
+          body.append(el('p.small.muted', { html: 'The teal dots are a strobe at equal time intervals: equal horizontal gaps (v<sub>x</sub> constant), growing vertical gaps (v<sub>y</sub> increasing).' }));
+
+          UI.modal('On target ✓', body, [{ label: 'Log the shot ▶', primary: true, onClick: () => askQuestion(shot) }]);
+        }
+
+        function askQuestion(s) {
+          const slot = el('div');
+          panel.append(el('div.eyebrow.mt', null, 'Shot analysis'), slot);
+          fireBtn.disabled = true;
+          UI.ask(slot, L.question(s), ({ correct }) => {
+            if (correct) { marks++; Game.addXp(45); }
+            level++;
+            setTimeout(startLevel, 200);
+          });
+          slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        refresh();
+      }
+
+      startLevel();
+    });
+  }
+
+  /* ------------------------------ zone entry ----------------------------- */
+
+  async function render(root) {
+    const run = Shell.zone(root, META);
+    await launches(run);
+
+    run.clear();
+    run.setStep(1, 2);
+    run.brief('Task 2 — <strong>Flight check.</strong> The projectile traps, straight from the deck.');
+    run.stage.append(el('div.panel', null,
+      el('div.eyebrow', null, 'The method never changes'),
+      el('ul.tight', { html: `
+        <li>Resolve: u<sub>x</sub> = u cos θ, u<sub>y</sub> = u sin θ.</li>
+        <li>Write two columns, horizontal and vertical.</li>
+        <li>Get the time from the vertical column, then use it horizontally.</li>
+        <li>Recombine at the end: v = √(v<sub>x</sub>² + v<sub>y</sub>²), tan θ = v<sub>y</sub>/v<sub>x</sub>.</li>` })
+    ));
+
+    const qs = Questions.sample(Questions.banks.s4, 5);
+    const correct = await Shell.askAll(run.side, qs, { title: 'Licence check', xp: 30 });
+    run.award(correct, qs.length);
+    run.setStep(2, 2);
+    await run.finish();
+  }
+
+  return { META, render };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   zone5.js — S5 Fluid resistance: "Drop Zone"
+   Task 1  Skydive   — a real quadratic-drag integration. Reach terminal speed,
+           then deploy: the v–t trace the cadet draws by falling IS the graph
+           from the deck's worked example (points A to E).
+   Task 2  Air on/off — the same launch in a vacuum and in air, then the
+           six-effects table from the deck.
+   Task 3  Flight check.
+   ========================================================================== */
+
+const Zone5 = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#ff6b81';
+  const G = Physics.G;
+
+  const META = {
+    id: 'z5',
+    tag: 'Zone 5 · S5',
+    name: 'Drop Zone',
+    subtitle: 'Fluid resistance: terminal speed and what drag does to a projectile',
+    accent: ACCENT,
+    steps: 3,
+    praise: 'Safe landings all round. You can argue about forces, not just numbers.',
+    revise: 'Re-read S5 steps 1–7: drag opposes velocity and grows with speed, terminal speed is where drag = weight, and the equations of motion no longer apply.',
+    recap: [
+      'Drag opposes the velocity and grows with speed. At release v = 0, so drag = 0 and a = g.',
+      'Terminal speed: drag = weight, resultant force = 0, a = 0 — but both forces still act.',
+      'Just after the parachute opens the acceleration is <strong>upwards</strong> while she still moves down.',
+      'With drag: lower peak, shorter range, shorter time of flight, lower landing speed, asymmetric path.'
+    ]
+  };
+
+  /* ------------------------------ task 1: the skydive -------------------- */
+
+  const JUMP = {
+    startHeight: 3000,      // m, a realistic exit altitude
+    freeFallTerminal: 55,   // m s⁻¹, belly-to-earth
+    chuteTerminal: 5.5,     // m s⁻¹, canopy open
+    safeLanding: 7.0,       // m s⁻¹
+    timeScale: 3,           // simulated seconds per real second while falling
+    fastScale: 60           // once the canopy transient is over, skip the drift
+  };
+
+  function skydive(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(0, 3);
+      run.brief('Task 1 — <strong>The jump.</strong> Fall until the acceleration reading drops to <strong>zero</strong> — that is terminal speed, where drag has grown to balance weight. Then deploy, and land at no more than 7 m s⁻¹.');
+
+      const sceneC = UI.canvas(240, 400);
+      const graphC = UI.canvas(300, 400);
+      run.stage.append(el('div.row', { style: { gap: '10px', alignItems: 'stretch' } },
+        el('div.canvas-wrap', { style: { flex: '0 0 auto' } }, sceneC.cnv),
+        el('div.canvas-wrap', { style: { flex: '1 1 220px' } }, graphC.cnv)
+      ));
+      const readouts = UI.readout({
+        t: { label: 'time' }, y: { label: 'altitude' }, v: { label: 'speed' }, a: { label: 'acceleration' }
+      });
+      run.stage.append(readouts.wrap);
+
+      const panel = el('div.panel');
+      run.side.append(panel);
+
+      const state = {
+        y: JUMP.startHeight, v: 0, t: 0,
+        deployed: false, deployT: null, deployV: null, landed: false,
+        reachedTerminal: false, maxSpeed: 0,
+        trace: []
+      };
+
+      let c = Physics.dragCoefficient(JUMP.freeFallTerminal);
+
+      const deployBtn = el('button.btn.btn--gold.btn--wide', { type: 'button', onClick: deploy }, '🪂 Deploy parachute');
+      const status = el('div.chips');
+      panel.append(
+        el('div.eyebrow', null, 'Jump console'),
+        el('p.small', { html: `Exit altitude <strong>${JUMP.startHeight} m</strong>. Free-fall terminal speed for this suit is about <strong>${JUMP.freeFallTerminal} m s⁻¹</strong>; under canopy it is about <strong>${JUMP.chuteTerminal} m s⁻¹</strong>. Land at <strong>≤ ${JUMP.safeLanding} m s⁻¹</strong>.` }),
+        status,
+        deployBtn,
+        el('p.small.muted.mt.mb0', { html: 'Watch the acceleration reading, not the clock: it starts at 9.81 m s⁻² and falls towards zero as drag builds.' })
+      );
+
+      function deploy() {
+        if (state.deployed || state.landed) return;
+        state.deployed = true;
+        state.deployT = state.t;
+        state.deployV = Math.abs(state.v);
+        c = Physics.dragCoefficient(JUMP.chuteTerminal);
+        deployBtn.disabled = true;
+        deployBtn.textContent = '🪂 Canopy open';
+      }
+
+      function chips() {
+        status.innerHTML = '';
+        status.append(
+          el('span.chip' + (state.reachedTerminal ? '.chip--on' : ''), null,
+            state.reachedTerminal ? 'terminal speed reached ✓' : 'terminal speed not yet reached'),
+          el('span.chip' + (state.deployed ? '.chip--gold' : ''), null,
+            state.deployed ? `deployed at ${Physics.fix(state.deployT, 1)} s` : 'canopy stowed')
+        );
+      }
+
+      function drawScene() {
+        const { ctx, w, h } = sceneC;
+        ctx.clearRect(0, 0, w, h);
+        const sky = ctx.createLinearGradient(0, 0, 0, h);
+        sky.addColorStop(0, '#0d1c33');
+        sky.addColorStop(1, '#050a12');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+        const groundY = h - 26;
+        const Y = m => groundY - (m / JUMP.startHeight) * (groundY - 24);
+
+        ctx.fillStyle = '#16233b';
+        ctx.fillRect(0, groundY, w, 26);
+        ctx.strokeStyle = 'rgba(36,52,79,.9)';
+        ctx.fillStyle = '#5f7190';
+        ctx.font = '10px ui-monospace, monospace';
+        for (let m = 0; m <= JUMP.startHeight; m += 500) {
+          ctx.beginPath(); ctx.moveTo(40, Y(m)); ctx.lineTo(w, Y(m)); ctx.stroke();
+          ctx.fillText(`${m}`, 6, Y(m) + 4);
+        }
+
+        const py = Y(Math.max(0, state.y));
+        const px = w / 2 + 14;
+        // Canopy
+        if (state.deployed) {
+          ctx.strokeStyle = '#ffc24a'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(px, py - 22, 17, Math.PI, 0); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(px - 17, py - 22); ctx.lineTo(px, py - 6);
+          ctx.lineTo(px + 17, py - 22); ctx.stroke();
+        }
+        // Jumper
+        ctx.fillStyle = state.landed ? '#5ce08a' : '#e8eef8';
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+
+        // Force arrows: weight always, drag growing with speed.
+        const speed = Math.abs(state.v);
+        const terminal = state.deployed ? JUMP.chuteTerminal : JUMP.freeFallTerminal;
+        const dragLen = 46 * Math.min(1.4, (speed * speed) / (terminal * terminal));
+        forceArrow(ctx, px + 34, py, 46, '#ff6b81', 'W');
+        if (dragLen > 2) forceArrow(ctx, px + 34, py, -dragLen, '#2fd6c3', 'drag');
+      }
+
+      function forceArrow(ctx, x, y, len, colour, label) {
+        // len > 0 points down (weight), len < 0 points up (drag)
+        ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + len); ctx.stroke();
+        const s = Math.sign(len);
+        ctx.beginPath();
+        ctx.moveTo(x, y + len);
+        ctx.lineTo(x - 6, y + len - s * 9);
+        ctx.lineTo(x + 6, y + len - s * 9);
+        ctx.fill();
+        ctx.font = '700 10px ui-monospace, monospace';
+        ctx.fillText(label, x + 8, y + len / 2);
+      }
+
+      function drawGraph() {
+        const { ctx, w, h } = graphC;
+        const pts = state.trace.map(p => ({ t: p.t, v: p.speed }));
+        if (pts.length < 2) {
+          ctx.fillStyle = '#050a12'; ctx.fillRect(0, 0, w, h);
+          return;
+        }
+        const tMax = Math.max(20, Math.ceil(pts[pts.length - 1].t / 10) * 10);
+        Zone2.drawVT(ctx, w, h, pts, {
+          tMax, vMin: 0, vMax: JUMP.freeFallTerminal * 1.15, colour: '#2fd6c3', shade: false
+        });
+        // Terminal-speed guide lines make "a = 0" visible as a flat trace.
+        const pad = { l: 52, r: 16, t: 22, b: 36 };
+        const Y = v => h - pad.b - (v / (JUMP.freeFallTerminal * 1.15)) * (h - pad.t - pad.b);
+        ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,194,74,.7)';
+        ctx.beginPath(); ctx.moveTo(pad.l, Y(JUMP.freeFallTerminal)); ctx.lineTo(w - pad.r, Y(JUMP.freeFallTerminal)); ctx.stroke();
+        ctx.strokeStyle = 'rgba(92,224,138,.7)';
+        ctx.beginPath(); ctx.moveTo(pad.l, Y(JUMP.chuteTerminal)); ctx.lineTo(w - pad.r, Y(JUMP.chuteTerminal)); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffc24a'; ctx.font = '10px ui-monospace, monospace';
+        ctx.fillText('free-fall terminal', pad.l + 4, Y(JUMP.freeFallTerminal) - 5);
+        ctx.fillStyle = '#5ce08a';
+        ctx.fillText('canopy terminal', pad.l + 4, Y(JUMP.chuteTerminal) - 5);
+      }
+
+      const anim = Zone.loop(dt => {
+        if (!state.landed) {
+          // Watch the canopy transient at normal pace, then fast-forward the drift.
+          const settled = state.deployed && (state.t - state.deployT) > 5;
+          const simStep = Math.min(dt, 0.05) * (settled ? JUMP.fastScale : JUMP.timeScale);
+          const sub = Math.max(1, Math.ceil(simStep / 0.01));
+          for (let i = 0; i < sub; i++) {
+            const next = Physics.stepDrag({ x: 0, y: state.y, vx: 0, vy: state.v }, simStep / sub, c);
+            state.y = next.y; state.v = next.vy;
+            state.t += simStep / sub;
+            if (state.y <= 0) { state.y = 0; state.landed = true; break; }
+          }
+          const speed = Math.abs(state.v);
+          state.maxSpeed = Math.max(state.maxSpeed, speed);
+          if (!state.deployed && speed >= JUMP.freeFallTerminal * 0.99) state.reachedTerminal = true;
+          if (state.trace.length === 0 || state.t - state.trace[state.trace.length - 1].t > 0.15) {
+            state.trace.push({ t: state.t, speed, a: Math.abs(Physics.accelWithDrag(0, state.v, c).ay) });
+          }
+        }
+
+        const a = Physics.accelWithDrag(0, state.v, c).ay;
+        readouts.set('t', `${Physics.fix(state.t, 1)} s`);
+        readouts.set('y', `${Physics.fix(Math.max(0, state.y), 0)} m`);
+        readouts.set('v', `${Physics.fix(Math.abs(state.v), 1)} m s⁻¹`);
+        readouts.set('a', `${Physics.fix(Math.abs(a), 2)} m s⁻²`);
+        chips();
+        drawScene();
+        drawGraph();
+
+        if (state.landed) { anim.stop(); deployBtn.disabled = true; finishJump(); }
+      });
+
+      function finishJump() {
+        const landingSpeed = Math.abs(state.v);
+        const safe = landingSpeed <= JUMP.safeLanding;
+        let marks = 0;
+        if (safe) marks++;
+        if (state.reachedTerminal) marks++;
+        if (safe) { Game.addXp(90); Game.awardBadge('terminal'); }
+
+        const body = el('div');
+        body.append(el('p', { html: safe
+          ? `Landed at <strong>${Physics.fix(landingSpeed, 1)} m s⁻¹</strong> — a safe landing.`
+          : `Landed at <strong>${Physics.fix(landingSpeed, 1)} m s⁻¹</strong>. That is above the ${JUMP.safeLanding} m s⁻¹ limit${state.deployed ? ' — the canopy opened too late to reach its terminal speed.' : ' — the canopy never opened.'}` }));
+        if (!state.reachedTerminal) {
+          body.append(el('p.small.muted', { html: 'You deployed before the acceleration reading reached zero, so you never actually reached free-fall terminal speed. Try holding the fall until a = 0.' }));
+        }
+        body.append(el('p.small.muted', { html: `Peak speed <strong>${Physics.fix(state.maxSpeed, 1)} m s⁻¹</strong>${state.deployed ? `, canopy opened at <strong>${Physics.fix(state.deployT, 1)} s</strong> while falling at ${Physics.fix(state.deployV, 1)} m s⁻¹` : ''}. At terminal speed, weight and drag are equal and opposite: the resultant force is zero, so a = 0 — but both forces are still there.` }));
+
+        run.award(marks, 2);
+
+        UI.modal(safe ? 'Safe landing ✓' : 'Hard landing', body, [
+          { label: 'Read the trace ▶', primary: true, onClick: () => askAboutJump(state) }
+        ]);
+      }
+
+      function askAboutJump(s) {
+        const qs = [
+          {
+            type: 'mcq', badge: 'terminal',
+            stem: `While you were falling at a steady ${Physics.fix(JUMP.freeFallTerminal, 0)} m s⁻¹ — the flat part of your trace — what was the <strong>resultant force</strong> on you?`,
+            options: [
+              { text: 'Zero: drag had grown until it balanced your weight' },
+              { text: 'Equal to your weight, downwards', why: 'Weight is one of the two forces acting, not the resultant of both.' },
+              { text: 'Upwards, because drag had become larger than weight', why: 'That is what happens just after the canopy opens, not at a steady terminal speed.' },
+              { text: 'Small and downwards, to keep you falling', why: 'Constant velocity needs no resultant force at all.' }
+            ],
+            answer: 0,
+            work: 'Constant velocity → a = 0 → resultant force = 0.\nThe flat trace is the direct evidence: no change in velocity.'
+          },
+          {
+            type: 'mcq', badge: 'terminal',
+            stem: 'In the instant <strong>after</strong> your canopy opened, which way did you <strong>accelerate</strong>, and which way did you <strong>move</strong>?',
+            options: [
+              { text: 'Accelerated upwards, moved downwards' },
+              { text: 'Accelerated downwards, moved downwards', why: 'Your speed dropped sharply, so the acceleration opposed your motion — it pointed up.' },
+              { text: 'Accelerated upwards, moved upwards', why: 'You kept falling. Slowing down while moving down is not the same as moving up.' },
+              { text: 'Neither — the forces balanced immediately', why: 'The trace falls steeply after deployment, so there was a large resultant force for a while.' }
+            ],
+            answer: 0,
+            work: 'The canopy\'s large area makes drag ≫ weight, so the resultant force is upwards.\nYou keep moving down, but slow rapidly, until drag falls back to equal weight at the new, lower terminal speed.'
+          },
+          {
+            type: 'mcq',
+            stem: 'At the very start of the jump, when your speed was still zero, what was your acceleration?',
+            options: [
+              { text: '9.81 m s⁻² downwards, because drag = 0 at v = 0' },
+              { text: 'Zero, because you had not started moving', why: 'Your weight acts from the first instant, so you accelerate from the first instant.' },
+              { text: 'Less than 9.81 m s⁻², because air was already resisting', why: 'Drag grows with speed. At v = 0 there is no drag at all.' },
+              { text: 'Greater than 9.81 m s⁻²', why: 'Nothing pushes you down harder than your own weight.' }
+            ],
+            answer: 0,
+            work: 'Drag depends on speed, and the speed was zero, so drag was zero.\nResultant force = weight → a = g = 9.81 m s⁻² downwards. That is why the trace starts at its steepest.'
+          }
+        ];
+
+        run.side.innerHTML = '';
+        Shell.askAll(run.side, qs, { title: 'Jump debrief', xp: 35 }).then(correct => {
+          run.award(correct, qs.length);
+          resolve();
+        });
+      }
+    });
+  }
+
+  /* ------------------------------ task 2: air on / air off ---------------- */
+
+  /* The golf ball from the deck: 20 m s⁻¹ at 35°.  A terminal speed of
+     22 m s⁻¹ reproduces the deck's model figures (range 38 m → 25 m,
+     height 6.7 m → 5.3 m, time 2.3 s → 2.1 s). */
+  const BALL = { u: 20, angle: 35, terminal: 22 };
+
+  function airOnOff(run) {
+    return new Promise(resolve => {
+      run.clear();
+      run.setStep(1, 3);
+      run.brief('Task 2 — <strong>Air on, air off.</strong> The same launch, twice: once in a vacuum, once in air. Compare the two paths, then complete the six-effects table.');
+
+      const vac = Physics.trajectory(BALL.u, BALL.angle, 0, 160);
+      const air = Physics.dragFlight(BALL.u, BALL.angle, 0, BALL.terminal, 0.002);
+
+      const { cnv, ctx, w, h } = UI.canvas(560, 330);
+      run.stage.append(el('div.canvas-wrap', null, cnv));
+
+      let reveal = 0;
+      const anim = Zone.loop(dt => {
+        reveal = Math.min(1, reveal + dt * 0.35);
+        drawCompare(ctx, w, h, vac, air, reveal);
+      });
+
+      run.stage.append(el('div.panel.mt', null,
+        el('div.eyebrow', null, `Launch: ${BALL.u} m s⁻¹ at ${BALL.angle}° above the horizontal`),
+        el('table.data', { html: `
+          <tr><th>Quantity</th><th>Vacuum</th><th>In air</th></tr>
+          <tr><td>Range</td><td class="num">${Physics.sig(vac.summary.range, 3)} m</td><td class="num">${Physics.sig(air.range, 3)} m</td></tr>
+          <tr><td>Maximum height</td><td class="num">${Physics.sig(vac.summary.maxHeight, 3)} m</td><td class="num">${Physics.sig(air.maxHeight, 3)} m</td></tr>
+          <tr><td>Time of flight</td><td class="num">${Physics.sig(vac.summary.timeOfFlight, 3)} s</td><td class="num">${Physics.sig(air.timeOfFlight, 3)} s</td></tr>
+          <tr><td>Landing speed</td><td class="num">${Physics.sig(vac.summary.landingSpeed, 3)} m s⁻¹</td><td class="num">${Physics.sig(air.landingSpeed, 3)} m s⁻¹</td></tr>` }),
+        el('p.small.muted.mt.mb0', { html: 'These are the deck\'s model figures: the same launch loses about a third of its range once the air is switched on.' })
+      ));
+
+      /* The six-effects table from the deck, as a set of dropdowns. */
+      const ROWS = [
+        { q: 'Maximum height', a: 'smaller', why: 'Going up, drag and weight both act downwards, so the ball slows faster and peaks lower.' },
+        { q: 'Range', a: 'smaller', why: 'Drag has a backwards horizontal component, so v<sub>x</sub> falls and less ground is covered.' },
+        { q: 'Time of flight', a: 'smaller', why: 'The descent is slower, but the much lower peak wins: the total is shorter.' },
+        { q: 'Horizontal velocity during the flight', a: 'no longer constant', why: 'Without drag v<sub>x</sub> never changes. With drag it decreases throughout, so it is no longer constant.' },
+        { q: 'Landing speed', a: 'smaller', why: 'Energy is transferred to the air, so the ball lands more slowly than it was launched.' },
+        { q: 'Acceleration during the flight', a: 'no longer constant', why: 'Greater than g going up, exactly g at the top where v = 0, less than g coming down.' }
+      ];
+      const OPTIONS = ['smaller', 'larger', 'no longer constant'];
+
+      const selects = [];
+      const rowsHtml = el('tbody');
+      ROWS.forEach((row, i) => {
+        const sel = el('select', { 'aria-label': row.q });
+        sel.append(el('option', { value: '' }, '— choose —'));
+        OPTIONS.forEach(o => sel.append(el('option', { value: o }, o)));
+        selects.push(sel);
+        const verdict = el('td');
+        const tr = el('tr', null, el('td', { html: row.q }), el('td', null, sel), verdict);
+        row.verdictCell = verdict;
+        rowsHtml.append(tr);
+      });
+
+      const checkBtn = el('button.btn.btn--primary.btn--wide.mt', { type: 'button', onClick: check }, 'Submit the table');
+      run.side.append(el('div.panel', null,
+        el('div.eyebrow', null, 'Six effects of fluid resistance'),
+        el('p.small.muted', { html: 'Compared with the same launch in a vacuum, each quantity becomes:' }),
+        el('table.data', null, el('thead', { html: '<tr><th>Quantity</th><th>In air it is…</th><th></th></tr>' }), rowsHtml),
+        checkBtn
+      ));
+
+      function check() {
+        let correct = 0;
+        ROWS.forEach((row, i) => {
+          const given = selects[i].value;
+          const ok = given === row.a;
+          if (ok) correct++;
+          selects[i].disabled = true;
+          row.verdictCell.innerHTML = '';
+          row.verdictCell.append(el('span', { style: { color: ok ? '#5ce08a' : '#ff6b81', fontWeight: '700' } }, ok ? '✓' : '✗'));
+          if (!ok) {
+            row.verdictCell.append(el('div.small.muted', { html: `<strong>${row.a}</strong> — ${row.why}` }));
+          }
+        });
+        checkBtn.disabled = true;
+        Game.recordAnswer(correct >= 5);
+        Game.addXp(correct * 25);
+        if (correct >= 5) Game.awardBadge('dragaware');
+        run.award(correct, ROWS.length);
+        anim.stop();
+        reveal = 1;
+        drawCompare(ctx, w, h, vac, air, 1);
+
+        UI.modal('Table checked', el('div', null,
+          el('p', { html: `<strong>${correct} of ${ROWS.length}</strong> correct.` }),
+          el('p.small.muted', { html: 'Drag opposes the velocity and grows with speed, so the horizontal and vertical motions are no longer independent — and the four equations of motion no longer apply.' })
+        ), [{ label: 'Continue ▶', primary: true, onClick: resolve }]);
+      }
+    });
+  }
+
+  function drawCompare(ctx, w, h, vac, air, reveal) {
+    const pad = { l: 40, r: 18, t: 20, b: 34 };
+    const maxX = Math.max(vac.summary.range, air.range) * 1.08;
+    const maxY = Math.max(vac.summary.maxHeight, air.maxHeight) * 1.35;
+    const X = m => pad.l + (m / maxX) * (w - pad.l - pad.r);
+    const Y = m => h - pad.b - (m / maxY) * (h - pad.t - pad.b);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#050a12'; ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(36,52,79,.8)'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#5f7190'; ctx.font = '10px ui-monospace, monospace';
+    for (let m = 0; m <= maxX; m += 5) {
+      ctx.beginPath(); ctx.moveTo(X(m), pad.t); ctx.lineTo(X(m), Y(0)); ctx.stroke();
+      if (m % 10 === 0) ctx.fillText(`${m}`, X(m) - 5, h - pad.b + 14);
+    }
+    for (let m = 0; m <= maxY; m += 2) {
+      ctx.beginPath(); ctx.moveTo(pad.l, Y(m)); ctx.lineTo(w - pad.r, Y(m)); ctx.stroke();
+    }
+    ctx.fillStyle = '#16233b';
+    ctx.fillRect(pad.l, Y(0), w - pad.l - pad.r, h - pad.b - Y(0) + 14);
+
+    const drawPath = (pts, colour, dash, upTo) => {
+      ctx.strokeStyle = colour; ctx.lineWidth = 2.6; ctx.setLineDash(dash);
+      ctx.beginPath();
+      const n = Math.max(2, Math.floor(pts.length * upTo));
+      for (let i = 0; i < n; i++) {
+        const p = pts[i];
+        if (i === 0) ctx.moveTo(X(p.x), Y(p.y)); else ctx.lineTo(X(p.x), Y(p.y));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const head = pts[Math.min(n - 1, pts.length - 1)];
+      ctx.fillStyle = colour;
+      ctx.beginPath(); ctx.arc(X(head.x), Y(head.y), 5, 0, Math.PI * 2); ctx.fill();
+    };
+
+    drawPath(vac.path, '#ffc24a', [7, 5], reveal);
+    drawPath(air.path, '#2fd6c3', [], reveal);
+
+    ctx.font = '700 11px ui-monospace, monospace';
+    ctx.fillStyle = '#ffc24a'; ctx.fillText('vacuum — symmetric parabola', pad.l + 6, pad.t + 12);
+    ctx.fillStyle = '#2fd6c3'; ctx.fillText('in air — lower peak, steeper descent', pad.l + 6, pad.t + 28);
+    ctx.fillStyle = '#5f7190'; ctx.fillText('x / m', w - pad.r - 26, h - 8);
+  }
+
+  /* ------------------------------ zone entry ----------------------------- */
+
+  async function render(root) {
+    const run = Shell.zone(root, META);
+    await skydive(run);
+    await airOnOff(run);
+
+    run.clear();
+    run.setStep(2, 3);
+    run.brief('Task 3 — <strong>Flight check.</strong> Fluid resistance is examined qualitatively — these are the explanations that earn the marks.');
+    run.stage.append(el('div.panel', null,
+      el('div.eyebrow', null, 'S5 key ideas'),
+      el('ul.tight', { html: `
+        <li>Drag opposes the velocity and <strong>grows with speed</strong>; at v = 0 there is none.</li>
+        <li>Falling: resultant = weight − drag, so a falls as v rises.</li>
+        <li>Terminal speed: drag = weight, resultant = 0, a = 0 — both forces still act.</li>
+        <li>Going up |a| > g; at the top |a| = g; coming down |a| < g.</li>
+        <li>The equations of motion do not apply, because a is not uniform.</li>` })
+    ));
+
+    const qs = Questions.sample(Questions.banks.s5, 5);
+    const correct = await Shell.askAll(run.side, qs, { title: 'Licence check', xp: 30 });
+    run.award(correct, qs.length);
+    run.setStep(3, 3);
+    await run.finish();
+  }
+
+  return { META, render };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   finalmission.js — "Mission Alpha", the whole-topic run.
+   The five hinge questions from the teaching deck, plus a sample from every
+   subtopic.  Three hull breaches and the run ends — so it rewards the cadet
+   who has actually retired the misconceptions, not one who guesses.
+   ========================================================================== */
+
+const FinalMission = (() => {
+  'use strict';
+  const el = UI.el;
+  const ACCENT = '#a98bff';
+
+  const META = {
+    id: 'final',
+    tag: 'Mission Alpha',
+    name: 'The Big Question',
+    subtitle: 'How can we predict where a moving object will be, and when?',
+    accent: ACCENT,
+    steps: 1,
+    requires: ['z1', 'z2', 'z3', 'z4', 'z5']
+  };
+
+  const HULL = 3;
+
+  function buildPaper() {
+    // The five hinge questions always appear — they are the checkpoints the
+    // teaching deck says to clear before moving on.
+    const paper = Questions.hinges();
+    ['s1', 's2', 's3', 's4', 's5'].forEach(key => {
+      const rest = Questions.banks[key].filter(q => q.tag !== 'HINGE');
+      paper.push(...Questions.sample(rest, 1));
+    });
+    return Questions.sample(paper, paper.length);   // shuffle
+  }
+
+  function render(root) {
+    const run = Shell.zone(root, META);
+    const paper = buildPaper();
+    let i = 0, correct = 0, hull = HULL;
+
+    run.brief('Every subtopic, one paper. Three hull breaches and the mission ends — so take the time to reason, not to guess.');
+
+    const hullChips = el('div.chips');
+    const slot = el('div');
+    const summary = el('div.panel', null,
+      el('div.eyebrow', null, 'Topic summary'),
+      el('ul.tight', { html: `
+        <li><strong>Describe</strong> — displacement, velocity and acceleration are vectors; gradients and areas read the graphs.</li>
+        <li><strong>Predict</strong> — uniform acceleration only: the four equations, with a stated sign convention.</li>
+        <li><strong>Two dimensions</strong> — apply them separately to the components, linked by the time.</li>
+        <li><strong>Limits</strong> — with fluid resistance the simple model overestimates height, range and time.</li>` })
+    );
+    run.stage.append(summary);
+    run.side.append(el('div.panel', null, el('div.eyebrow', null, 'Paper'), hullChips, slot));
+
+    function drawHull() {
+      hullChips.innerHTML = '';
+      hullChips.append(
+        el('span.chip.chip--on', null, `Q ${Math.min(i + 1, paper.length)} of ${paper.length}`),
+        el('span.chip' + (hull > 1 ? '.chip--gold' : ''), null, `hull ${'▮'.repeat(hull)}${'▯'.repeat(HULL - hull)}`),
+        el('span.chip', null, `${correct} correct`)
+      );
+    }
+
+    function next() {
+      drawHull();
+      if (hull <= 0 || i >= paper.length) { finish(); return; }
+      UI.ask(slot, paper[i], ({ correct: ok }) => {
+        if (ok) { correct++; Game.addXp(50); } else { hull--; }
+        i++;
+        next();
+      });
+    }
+
+    function finish() {
+      const answered = i;
+      const stars = Shell.starsFor(correct, paper.length);
+      run.award(correct, paper.length);
+      const passed = correct >= 8 && hull > 0;
+      if (passed) Game.awardBadge('commander');
+
+      const body = el('div');
+      body.append(el('div.stars-big', null, UI.stars(stars, 5)));
+      body.append(el('p.center', { html: hull > 0
+        ? `<strong>${correct} of ${paper.length}</strong> correct.`
+        : `Hull breached after ${answered} questions — <strong>${correct}</strong> correct.` }));
+      body.append(el('p', { html: passed
+        ? 'Mission Alpha cleared. You can describe motion, predict it, extend it to two dimensions, and say exactly where the simple model stops being true.'
+        : 'Not cleared this time. Go back to the zone whose ideas cost you the hull — the debrief lists what to re-read.' }));
+
+      const missed = paper.slice(0, answered).filter((q, k) => q.tag === 'HINGE');
+      if (missed.length) {
+        body.append(el('p.small.muted', { html: 'The hinge questions in this paper are the five checkpoints from the teaching deck. If any of them caught you, that subtopic is where to go next.' }));
+      }
+
+      UI.modal(passed ? '🎖️ Mission Alpha cleared' : 'Mission Alpha', body, [
+        { label: 'Back to map', primary: true, onClick: () => Game.go('map') },
+        { label: 'Run it again', onClick: () => Game.go('zone', { id: 'final' }) }
+      ]);
+      Game.finishZone('final', { stars, score: correct });
+    }
+
+    next();
+  }
+
+  return { META, render };
+})();
+
+</script>
+<script>
+/* ==========================================================================
+   main.js — title screen, mission map, and the routes that tie them together.
+   ========================================================================== */
+
+(() => {
+  'use strict';
+  const el = UI.el;
+
+  const ZONES = [Zone1, Zone2, Zone3, Zone4, Zone5];
+  const ALL = [...ZONES, FinalMission];
+  const byId = id => ALL.find(z => z.META.id === id);
+
+  /* Each zone opens once the one before it has been cleared. */
+  ZONES.forEach((z, i) => { if (i > 0) z.META.requires = [ZONES[i - 1].META.id]; });
+
+  const SKILLS = {
+    z1: 'distance vs displacement · speed vs velocity · the sign of a',
+    z2: 'gradients · tangents · areas · uniform and non-uniform acceleration',
+    z3: 'the four equations · sign conventions · free fall',
+    z4: 'components · two columns · time of flight, range, max height',
+    z5: 'drag · terminal speed · the six effects on a projectile',
+    final: 'every subtopic, including all five hinge questions'
+  };
+
+  /* ------------------------------ title ---------------------------------- */
+
+  Game.route('title', root => {
+    const nameInput = el('input', { type: 'text', maxlength: 24, value: Game.save.name === 'Pilot' ? '' : Game.save.name, placeholder: 'e.g. Amara' });
+
+    const start = () => {
+      const given = nameInput.value.trim();
+      Game.save.name = given || 'Pilot';
+      Game.persist();
+      Game.go('map');
+    };
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+
+    root.append(
+      el('div.title', null,
+        el('div.title__logo', null, 'VECTOR RESCUE'),
+        el('p.title__sub', { html: 'IB DP Physics · Theme A · <strong>A.1 Kinematics</strong><br>Five zones, one question: where will it be, and when?' }),
+        el('div.panel.title__card', null,
+          el('div.eyebrow', null, 'Cadet registration'),
+          el('p.small.muted', { html: 'You are a rescue pilot in training. Each zone teaches one subtopic by making you fly it — plot a route, build a velocity–time graph, pick the right equation, aim a launcher, survive a skydive.' }),
+          el('label.field', null, el('span', null, 'Call sign'), nameInput),
+          el('button.btn.btn--primary.btn--wide', { type: 'button', onClick: start }, 'Begin training ▶'),
+          el('p.small.muted.mt.mb0', { html: `Take <strong>g = 9.81 m s⁻²</strong> throughout, exactly as the deck does. Progress saves in this browser.` })
+        ),
+        Game.save.xp > 0 ? el('p.small.muted.mt', { html: `Welcome back — ${Game.save.xp} XP, ${Game.totalStars()} stars so far.` }) : null
+      )
+    );
+  });
+
+  /* ------------------------------ mission map ---------------------------- */
+
+  Game.route('map', root => {
+    const cleared = ZONES.filter(z => Game.zoneState(z.META.id).cleared).length;
+
+    root.append(el('div.spread', null,
+      el('div', null,
+        el('div.eyebrow', null, 'Mission map'),
+        el('h1', { style: { marginBottom: '2px' } }, 'A.1 Kinematics'),
+        el('p.muted.mb0', { html: 'Five zones follow the five subtopics of the deck, in order.' })
+      ),
+      el('div.center', null,
+        el('div', { style: { font: '700 1.6rem ui-monospace,monospace', color: '#2fd6c3' } }, `${cleared}/5`),
+        el('div.small.muted', null, 'zones cleared')
+      )
+    ));
+
+    const grid = el('div.map-grid.mt');
+    ALL.forEach(mod => {
+      const m = mod.META;
+      const st = Game.zoneState(m.id);
+      const unlocked = Game.isUnlocked(m, ALL);
+      const card = el('button.zone-card', {
+        type: 'button',
+        disabled: !unlocked,
+        style: { '--accent': m.accent },
+        onClick: () => Game.go('zone', { id: m.id })
+      },
+        el('span.zone-card__tag', { style: { color: m.accent } }, m.tag),
+        el('span.zone-card__name', null, m.name),
+        el('span.zone-card__sub', null, m.subtitle),
+        el('span.zone-card__skills', null, SKILLS[m.id] || ''),
+        el('span.zone-card__foot', null,
+          el('span.zone-card__stars', null, UI.stars(st.stars, 5)),
+          el('span.zone-card__best', null, st.cleared ? `best ${st.best}` : (unlocked ? 'not flown' : 'locked'))
+        ),
+        !unlocked ? el('span.zone-card__lock', null, '🔒') : null
+      );
+      grid.append(card);
+    });
+    root.append(grid);
+
+    /* Badges: one per misconception retired. */
+    const badges = el('div.badge-grid');
+    Object.entries(Game.BADGES).forEach(([id, b]) => {
+      const on = !!Game.save.badges[id];
+      badges.append(el('div.badge' + (on ? '.badge--on' : ''), null,
+        el('span.badge__icon', null, b.icon),
+        el('span.badge__name', null, b.name),
+        el('span.badge__desc', { html: on ? b.desc : 'Locked' })
+      ));
+    });
+
+    const answered = Game.save.totalAnswered;
+    const accuracy = answered ? Math.round((Game.save.totalCorrect / answered) * 100) : 0;
+
+    root.append(el('div.panel.mt', null,
+      el('div.spread', null,
+        el('div.eyebrow', null, 'Misconceptions retired'),
+        el('span.small.muted', null, answered ? `${Game.save.totalCorrect}/${answered} answered correctly · ${accuracy}%` : 'no questions answered yet')
+      ),
+      el('p.small.muted', { html: 'Each badge is one wrong idea from the deck\'s "common misconceptions" slides that you have now beaten.' }),
+      badges
+    ));
+
+    root.append(el('div.panel', null,
+      el('div.eyebrow', null, 'Revision links from the deck'),
+      el('table.data', { html: `
+        <tr><th>Resource</th><th>Use it for</th></tr>
+        <tr><td><a href="https://phet.colorado.edu/sims/cheerpj/moving-man/latest/moving-man.html" target="_blank" rel="noopener">PhET: The Moving Man</a></td><td>S2 motion graphs</td></tr>
+        <tr><td><a href="https://phet.colorado.edu/sims/html/projectile-motion/latest/projectile-motion_en.html" target="_blank" rel="noopener">PhET: Projectile Motion</a></td><td>S4 and S5</td></tr>
+        <tr><td><a href="https://www.youtube.com/watch?v=E43-CfukEgs" target="_blank" rel="noopener">BBC: the world's biggest vacuum chamber</a></td><td>S3 free fall</td></tr>
+        <tr><td><a href="https://www.youtube.com/watch?v=zMF4CD7i3hg" target="_blank" rel="noopener">Harvard: Shoot-n-Drop</a></td><td>S4 independence of motions</td></tr>` }),
+      el('p.small.muted.mt.mb0', null, 'PhET Interactive Simulations, University of Colorado Boulder (CC-BY 4.0).'),
+      el('div.btn-row.mt', null,
+        el('button.btn.btn--sm.btn--ghost', {
+          type: 'button',
+          onClick: () => UI.modal('Reset progress?', 'This clears your XP, stars and badges on this device. It cannot be undone.', [
+            { label: 'Reset everything', primary: true, onClick: () => { Game.reset(); Game.go('title'); } },
+            { label: 'Keep my progress' }
+          ])
+        }, 'Reset progress')
+      )
+    ));
+  });
+
+  /* ------------------------------ zone dispatch -------------------------- */
+
+  Game.route('zone', (root, params) => {
+    const mod = byId(params.id);
+    if (!mod) { Game.go('map'); return; }
+    if (!Game.isUnlocked(mod.META, ALL)) { UI.toast('Clear the zone before it first.'); Game.go('map'); return; }
+    Promise.resolve(mod.render(root)).catch(err => {
+      console.error(err);
+      UI.toast('Something went wrong in that zone — back to the map.');
+      Game.go('map');
+    });
+  });
+
+  /* ------------------------------ boot ----------------------------------- */
+
+  document.addEventListener('click', e => {
+    const nav = e.target.closest('[data-nav]');
+    if (nav) Game.go(nav.getAttribute('data-nav'));
+  });
+
+  Game.load();
+  Game.go(Game.save.xp > 0 ? 'map' : 'title');
+})();
+
+</script>
+</body>
+</html>
