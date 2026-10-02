@@ -1,6 +1,7 @@
 import * as store from './store.js';
 import {
   fmtClock, transcriptToText, textToTranscript, generateWithClaude, generateBasic, renderMarkdown, checkApiKey,
+  buildClaudeAppPrompt, minutesFromPastedReply,
 } from './minutes.js';
 
 const $ = (id) => document.getElementById(id);
@@ -410,7 +411,7 @@ async function showMeeting(id) {
 
 function updateGenHint() {
   const broken = settings.apiKey && settings.keyOk === false;
-  $('genHint').textContent = !settings.apiKey ? 'Basic minutes, written on this phone.'
+  $('genHint').textContent = !settings.apiKey ? 'Generate writes basic minutes on the phone. For AI minutes, use your Claude app.'
     : broken ? 'Your Claude key isn\'t working.' : 'AI minutes by Claude';
   $('addKeyBtn').textContent = broken ? 'Fix Claude key' : 'Add Claude key';
   $('addKeyBtn').hidden = !!settings.apiKey && !broken;
@@ -481,6 +482,89 @@ $('generateBtn').onclick = async () => {
     renderMinutes();
   }
 };
+
+/* ---------------- Claude app (no API key) ---------------- */
+
+// Copies text, falling back to a hidden textarea where the async clipboard API is missing.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    ta.remove();
+    return ok;
+  }
+}
+
+$('claudeAppBtn').onclick = () => {
+  if (!current.segments.length) { toast('There is no transcript yet. Record the meeting or paste a transcript first.'); return; }
+  const dlg = $('claudeAppDialog');
+  dlg.returnValue = '';
+  $('caReply').value = '';
+  $('caCopyStatus').textContent = '';
+  $('caShareBtn').hidden = !navigator.share;
+  dlg.showModal();
+};
+
+$('caCopyBtn').onclick = async () => {
+  const ok = await copyText(buildClaudeAppPrompt(current));
+  $('caCopyStatus').textContent = ok
+    ? 'Copied. Now open Claude, paste it into a new chat and send.'
+    : 'Copying isn\'t allowed here. Try Share to Claude app instead.';
+};
+
+$('caShareBtn').onclick = async () => {
+  try {
+    await navigator.share({ title: current.title, text: buildClaudeAppPrompt(current) });
+    $('caCopyStatus').textContent = 'Shared. Send it in Claude, then copy Claude\'s reply.';
+  } catch (err) {
+    if (err.name !== 'AbortError') toast('Sharing didn\'t work. Use Copy for Claude instead.');
+  }
+};
+
+$('caPasteBtn').onclick = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text.trim()) $('caReply').value = text;
+    else toast('The clipboard is empty. Copy Claude\'s reply first.');
+  } catch {
+    toast('Long-press the box below and choose Paste.');
+    $('caReply').focus();
+  }
+};
+
+$('claudeAppForm').addEventListener('submit', (e) => {
+  const reply = $('caReply').value.trim();
+  if (!reply) {
+    e.preventDefault();
+    toast('Paste Claude\'s reply into the box first.');
+  } else if (reply.includes('<transcript>')) {
+    e.preventDefault();
+    toast('That\'s the text for Claude. Send it in Claude, then copy Claude\'s reply.', 6000);
+  }
+});
+
+$('claudeAppDialog').addEventListener('close', async () => {
+  if ($('claudeAppDialog').returnValue !== 'ok') return;
+  const reply = $('caReply').value.trim();
+  if (!reply) return;
+  if (current.minutes && !(await askConfirm('Replace the current minutes with Claude\'s reply?', 'Replace'))) return;
+  current.minutes = minutesFromPastedReply(current, reply);
+  current.minutesSource = 'claude-app';
+  await store.saveMeeting(current);
+  setEditing(false);
+  renderMinutes();
+  toast('Minutes saved');
+});
 
 function setEditing(on) {
   $('minutesEditor').hidden = !on;

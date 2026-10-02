@@ -84,6 +84,7 @@
       <div id="minutesTab">
         <div class="card actions-card">
           <button class="btn primary" id="generateBtn">&#10024; Generate minutes</button>
+          <button class="btn" id="claudeAppBtn" type="button">Use my Claude app</button>
           <span class="hint small" id="genHint"></span>
           <button class="btn small-btn" id="addKeyBtn" type="button" hidden>Add Claude key</button>
         </div>
@@ -132,6 +133,41 @@
       <div class="dialog-actions">
         <button class="btn" type="button" data-close>Cancel</button>
         <button class="btn primary" value="save" id="saveSettingsBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Write minutes with the Claude app or claude.ai, no API key needed -->
+  <dialog id="claudeAppDialog">
+    <form method="dialog" class="form" id="claudeAppForm">
+      <h2>Write with your Claude app</h2>
+      <p class="hint small">Free with your claude.ai account. No API key needed.</p>
+      <ol class="steps">
+        <li>
+          <b>Copy the meeting</b> with instructions for Claude.
+          <div class="step-actions">
+            <button class="btn primary" type="button" id="caCopyBtn">Copy for Claude</button>
+            <button class="btn" type="button" id="caShareBtn" hidden>Share to Claude app</button>
+          </div>
+          <span class="hint small" id="caCopyStatus" role="status"></span>
+        </li>
+        <li>
+          <b>Open Claude</b>, paste it into a new chat, and send.
+          <div class="step-actions">
+            <a class="btn" id="caOpenLink" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+          </div>
+        </li>
+        <li>
+          <b>Copy Claude's reply</b> with its Copy button, come back, and paste it below.
+          <div class="step-actions">
+            <button class="btn" type="button" id="caPasteBtn">Paste</button>
+          </div>
+        </li>
+      </ol>
+      <textarea id="caReply" rows="7" placeholder="Paste Claude's minutes here"></textarea>
+      <div class="dialog-actions">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn primary" value="ok" id="caUseBtn">Use these minutes</button>
       </div>
     </form>
   </dialog>

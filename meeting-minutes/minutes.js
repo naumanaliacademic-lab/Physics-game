@@ -94,6 +94,28 @@ function buildUserPrompt(meeting) {
   return parts.join('\n\n');
 }
 
+// Prompt for pasting into the Claude app or claude.ai (no API key needed).
+export function buildClaudeAppPrompt(meeting) {
+  return `${SYSTEM_PROMPT}
+- Reply with the minutes only, as plain Markdown (not inside a code block), with no introduction or closing remarks.
+
+${buildUserPrompt(meeting)}`;
+}
+
+// Turns a reply pasted back from the Claude app into full minutes.
+export function minutesFromPastedReply(meeting, reply) {
+  let text = reply.replace(/\r/g, '').trim();
+  const fenced = text.match(/```(?:markdown|md)?[ \t]*\n([\s\S]*?)\n```/i);
+  if (fenced && /^#{1,3}\s/m.test(fenced[1])) text = fenced[1].trim();
+  if (/^#\s/.test(text)) return `${text}\n`;
+  // Drop any chatty introduction before the first section heading.
+  const firstSection = text.search(/^##\s/m);
+  if (firstSection > 0) text = text.slice(firstSection);
+  // …and any sign-off after the last section.
+  text = text.replace(/\n+(?:let me know|hope (?:this|that)|feel free|if you(?:'d| would) like|would you like|i can also)[^\n]*\s*$/i, '');
+  return `${header(meeting)}\n\n${text.trim()}\n`;
+}
+
 async function loadSdk() {
   try {
     return (await import(SDK_URL)).default;
