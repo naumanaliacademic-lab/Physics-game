@@ -9,6 +9,7 @@
   --danger: #b3261e;
   --rec: #e53935;
   --chip: #e8eef5;
+  --ok: #1e7d3a;
   --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
@@ -22,6 +23,7 @@
     --primary-text: #0d1520;
     --danger: #f2827a;
     --chip: #253041;
+    --ok: #6fcf8a;
   }
 }
 
@@ -109,6 +111,10 @@ textarea { resize: vertical; }
 .tab { flex: 1; font: inherit; font-weight: 600; border: 0; background: none; color: var(--muted); padding: 8px; border-radius: 999px; cursor: pointer; }
 .tab.active { background: var(--primary); color: var(--primary-text); }
 
+.key-status { margin: -6px 0 0; font-weight: 600; color: var(--muted); }
+.key-status.ok { color: var(--ok); }
+.key-status.bad { color: var(--danger); }
+.small-btn { padding: 6px 12px; font-size: .85rem; }
 .actions-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .export-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .editor { min-height: 50vh; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9rem; width: 100%; }

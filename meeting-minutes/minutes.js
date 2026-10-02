@@ -94,13 +94,40 @@ function buildUserPrompt(meeting) {
   return parts.join('\n\n');
 }
 
-export async function generateWithClaude(meeting, apiKey, onProgress) {
-  let Anthropic;
+async function loadSdk() {
   try {
-    ({ default: Anthropic } = await import(SDK_URL));
+    return (await import(SDK_URL)).default;
   } catch {
     throw new Error('Could not load the Claude library. Check your internet connection.');
   }
+}
+
+// Turns API errors into messages a phone user can act on.
+function friendlyError(err, Anthropic) {
+  const msg = err?.message || String(err);
+  if (err instanceof Anthropic.AuthenticationError) return new Error('Claude rejected this API key. Copy the key again from console.anthropic.com → API keys and paste it in Settings.');
+  if (err instanceof Anthropic.PermissionDeniedError) return new Error('This API key is not allowed to use Claude. Check the key\'s workspace in console.anthropic.com.');
+  if (/credit balance|billing|purchase credits/i.test(msg)) return new Error('Your Anthropic account has no API credit. Add credit at console.anthropic.com → Billing, then try again.');
+  if (err instanceof Anthropic.RateLimitError) return new Error('Too many requests right now. Wait a minute and try again.');
+  if (err instanceof Anthropic.APIConnectionError) return new Error('Could not reach Claude. Check your internet connection.');
+  if (err instanceof Anthropic.InternalServerError) return new Error('Claude is busy or having a problem. Try again in a minute.');
+  if (err instanceof Anthropic.APIError) return new Error(`Claude API error: ${msg}`);
+  return err;
+}
+
+// Checks a key without spending tokens: looking up the model is free.
+export async function checkApiKey(apiKey) {
+  const Anthropic = await loadSdk();
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1 });
+  try {
+    await client.models.retrieve(MODEL);
+  } catch (err) {
+    throw friendlyError(err, Anthropic);
+  }
+}
+
+export async function generateWithClaude(meeting, apiKey, onProgress) {
+  const Anthropic = await loadSdk();
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const head = header(meeting);
 
@@ -130,11 +157,7 @@ export async function generateWithClaude(meeting, apiKey, onProgress) {
     if (!text.trim()) throw new Error('Claude returned an empty response. Please try again.');
     return `${head}\n\n${text.trim()}\n`;
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) throw new Error('Your Claude API key was rejected. Check it in Settings.');
-    if (err instanceof Anthropic.RateLimitError) throw new Error('Too many requests right now. Wait a minute and try again.');
-    if (err instanceof Anthropic.APIConnectionError) throw new Error('Could not reach Claude. Check your internet connection.');
-    if (err instanceof Anthropic.APIError) throw new Error(`Claude API error: ${err.message}`);
-    throw err;
+    throw friendlyError(err, Anthropic);
   }
 }
 

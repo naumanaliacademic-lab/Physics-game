@@ -1,5 +1,5 @@
 // Caches the app shell so it opens without a connection.
-const CACHE = 'minutes-v2';
+const CACHE = 'minutes-v3';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'minutes.js', 'store.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',

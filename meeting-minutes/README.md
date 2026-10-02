@@ -43,8 +43,11 @@ The first time you record, allow microphone access.
 
 ## AI minutes with Claude
 
-1. Create an API key at <https://console.anthropic.com> (API usage is billed by Anthropic).
-2. In the app open **⚙ Settings** and paste the key.
+1. Sign in at <https://console.anthropic.com>. Add credit under **Billing**: API use is paid separately, and a claude.ai subscription doesn't include it.
+2. Open **API keys → Create key** and copy the key. It starts with `sk-ant-`.
+3. In the app, open **⚙ Settings** (or tap **Add Claude key** on a meeting), paste the key and tap **Save**.
+
+The app checks the key straight away, at no cost, and tells you whether it works. If the key is wrong or the account has no credit, it says so, and you can fix it under ⚙ Settings.
 
 The key is stored only on your phone. When you tap *Generate minutes*, the transcript is sent directly from your phone to Anthropic's API, and the minutes stream in as they're written.
 

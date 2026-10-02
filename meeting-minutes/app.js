@@ -1,6 +1,6 @@
 import * as store from './store.js';
 import {
-  fmtClock, transcriptToText, textToTranscript, generateWithClaude, generateBasic, renderMarkdown,
+  fmtClock, transcriptToText, textToTranscript, generateWithClaude, generateBasic, renderMarkdown, checkApiKey,
 } from './minutes.js';
 
 const $ = (id) => document.getElementById(id);
@@ -405,8 +405,17 @@ async function showMeeting(id) {
   $('transcriptEditor').value = transcriptToText(m.segments);
   $('audioBtn').hidden = !m.hasAudio;
   $('resumeBtn').hidden = !SpeechRecognition;
-  $('genHint').textContent = settings.apiKey ? 'Written by Claude' : 'Basic, on-device (add a Claude key in Settings for AI minutes)';
+  updateGenHint();
 }
+
+function updateGenHint() {
+  const broken = settings.apiKey && settings.keyOk === false;
+  $('genHint').textContent = !settings.apiKey ? 'Basic minutes, written on this phone.'
+    : broken ? 'Your Claude key isn\'t working.' : 'AI minutes by Claude';
+  $('addKeyBtn').textContent = broken ? 'Fix Claude key' : 'Add Claude key';
+  $('addKeyBtn').hidden = !!settings.apiKey && !broken;
+}
+$('addKeyBtn').onclick = () => { $('settingsBtn').click(); setTimeout(() => $('settingsForm').apiKey.focus(), 50); };
 
 function renderMinutes() {
   const has = !!current.minutes;
@@ -554,23 +563,74 @@ $('deleteBtn').onclick = async () => {
 /* ---------------- settings dialog ---------------- */
 
 $('langSelect').innerHTML = LANGUAGES.map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
+// Cancel buttons close their dialog without submitting, so pressing Enter or
+// Go on the phone keyboard always means Save / OK.
+document.querySelectorAll('[data-close]').forEach((b) => {
+  b.onclick = () => b.closest('dialog').close('cancel');
+});
+
+function renderKeyStatus() {
+  const el = $('keyStatus');
+  el.className = 'key-status small';
+  if (!settings.apiKey) {
+    el.textContent = 'No key saved. Minutes are written on the phone.';
+  } else if (settings.keyOk === false) {
+    el.textContent = `Key ending …${settings.apiKey.slice(-4)} didn't work last time it was checked.`;
+    el.classList.add('bad');
+  } else {
+    el.textContent = `✓ Key saved (ending …${settings.apiKey.slice(-4)})`;
+    el.classList.add('ok');
+  }
+}
+
 $('settingsBtn').onclick = () => {
   const f = $('settingsForm');
   f.lang.value = settings.lang;
   f.apiKey.value = settings.apiKey;
   f.saveAudio.checked = settings.saveAudio;
+  renderKeyStatus();
   $('settingsDialog').showModal();
 };
+
+async function verifyKey(key) {
+  toast('Checking your Claude key…', 10000);
+  try {
+    await checkApiKey(key);
+    if (settings.apiKey !== key) return;
+    settings.keyOk = true;
+    toast('Claude key works. Minutes will be written by Claude.', 4000);
+  } catch (err) {
+    if (settings.apiKey !== key) return;
+    // A connection problem says nothing about the key itself.
+    if (/internet|reach Claude|library/i.test(err.message)) {
+      toast(`Key saved. ${err.message}`, 6000);
+      return;
+    }
+    settings.keyOk = false;
+    toast(err.message, 9000);
+  }
+  saveSettings();
+  if (current && !$('meetingView').hidden) updateGenHint();
+}
+
 $('settingsDialog').addEventListener('close', () => {
   if ($('settingsDialog').returnValue !== 'save') return;
   const f = $('settingsForm');
-  settings = { ...settings, lang: f.lang.value, apiKey: f.apiKey.value.trim(), saveAudio: f.saveAudio.checked };
+  // Pasted keys often pick up spaces or line breaks.
+  const apiKey = f.apiKey.value.replace(/\s+/g, '');
+  const keyChanged = apiKey !== settings.apiKey;
+  settings = { ...settings, lang: f.lang.value, apiKey, saveAudio: f.saveAudio.checked };
+  if (keyChanged) delete settings.keyOk;
   saveSettings();
   if (recorder) recorder.rec.lang = settings.lang;
-  if (current && !$('meetingView').hidden) {
-    $('genHint').textContent = settings.apiKey ? 'Written by Claude' : 'Basic, on-device (add a Claude key in Settings for AI minutes)';
+  if (current && !$('meetingView').hidden) updateGenHint();
+  if (apiKey && !apiKey.startsWith('sk-ant-')) {
+    toast('Saved, but this doesn\'t look like a Claude API key. Keys start with "sk-ant-".', 7000);
+  } else if (apiKey && keyChanged) {
+    verifyKey(apiKey);
+  } else {
+    toast('Settings saved');
   }
-  toast('Settings saved');
 });
 
 /* ---------------- start ---------------- */
