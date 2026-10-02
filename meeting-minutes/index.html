@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Minutes</title>
+  <meta name="description" content="Record meetings and turn the discussion into meeting minutes.">
+  <meta name="theme-color" content="#1f4e79">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Minutes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="backBtn" aria-label="Back" hidden>&#8592;</button>
+    <h1 id="viewTitle">Minutes</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <main>
+    <!-- Home: list of meetings -->
+    <section id="homeView" class="view">
+      <button class="btn primary big" id="newMeetingBtn">&#127908; New meeting</button>
+      <p class="hint" id="supportHint" hidden></p>
+      <h2 class="section-title">Past meetings</h2>
+      <ul class="meeting-list" id="meetingList"></ul>
+      <p class="empty" id="emptyList">No meetings yet. Tap <b>New meeting</b> to start.</p>
+      <button class="btn" id="sampleBtn">Try an example meeting</button>
+    </section>
+
+    <!-- Setup -->
+    <section id="setupView" class="view" hidden>
+      <form id="setupForm" class="card form">
+        <label>Meeting title
+          <input name="title" required placeholder="e.g. Weekly team meeting">
+        </label>
+        <label>Attendees <small>(comma separated)</small>
+          <input name="attendees" placeholder="Sara, Ali, John">
+        </label>
+        <label>Agenda <small>(one item per line, optional)</small>
+          <textarea name="agenda" rows="4" placeholder="Budget review&#10;Project timeline"></textarea>
+        </label>
+        <label>Location / link <small>(optional)</small>
+          <input name="location" placeholder="Room 4 / Zoom">
+        </label>
+        <button class="btn primary big" type="submit">&#9679; Start listening</button>
+        <button class="btn" type="button" id="pasteInsteadBtn">Paste or type a transcript instead</button>
+      </form>
+    </section>
+
+    <!-- Recording -->
+    <section id="recordView" class="view" hidden>
+      <div class="rec-status card">
+        <div class="rec-row">
+          <span class="dot" id="recDot"></span>
+          <span id="recState">Listening</span>
+          <span class="timer" id="timer">00:00</span>
+        </div>
+        <div class="speakers" id="speakerChips" aria-label="Who is speaking"></div>
+        <p class="hint small">Tap a name when the speaker changes (optional).</p>
+      </div>
+      <div class="transcript card" id="liveTranscript" aria-live="polite"></div>
+      <div class="note-row">
+        <input id="noteInput" placeholder="Add a note, decision or action…">
+        <button class="btn" id="addNoteBtn">Add</button>
+      </div>
+      <div class="rec-controls">
+        <button class="btn" id="pauseBtn">&#10074;&#10074; Pause</button>
+        <button class="btn danger" id="stopBtn">&#9632; Finish</button>
+      </div>
+    </section>
+
+    <!-- Meeting detail / minutes -->
+    <section id="meetingView" class="view" hidden>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="minutes" role="tab">Minutes</button>
+        <button class="tab" data-tab="transcript" role="tab">Transcript</button>
+      </div>
+
+      <div id="minutesTab">
+        <div class="card actions-card">
+          <button class="btn primary" id="generateBtn">&#10024; Generate minutes</button>
+          <span class="hint small" id="genHint"></span>
+        </div>
+        <div id="minutesPreview" class="card minutes"></div>
+        <textarea id="minutesEditor" class="card editor" hidden></textarea>
+        <div class="export-row" id="exportRow">
+          <button class="btn" id="editBtn">&#9998; Edit</button>
+          <button class="btn" id="shareBtn">Share</button>
+          <button class="btn" id="copyBtn">Copy</button>
+          <button class="btn" id="downloadBtn">Word file</button>
+          <button class="btn" id="emailBtn">Email</button>
+          <button class="btn" id="printBtn">PDF / Print</button>
+        </div>
+      </div>
+
+      <div id="transcriptTab" hidden>
+        <textarea id="transcriptEditor" class="card editor tall" placeholder="Transcript…"></textarea>
+        <div class="export-row">
+          <button class="btn" id="saveTranscriptBtn">Save transcript</button>
+          <button class="btn" id="resumeBtn">&#127908; Continue recording</button>
+          <button class="btn" id="audioBtn" hidden>Download audio</button>
+          <button class="btn danger" id="deleteBtn">Delete meeting</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings -->
+  <dialog id="settingsDialog">
+    <form method="dialog" class="form" id="settingsForm">
+      <h2>Settings</h2>
+      <label>Speech language
+        <select name="lang" id="langSelect"></select>
+      </label>
+      <label id="apiKeyField">Claude API key <small>(optional, for AI-written minutes)</small>
+        <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+      </label>
+      <p class="hint small" id="apiKeyHint">Without a key the app still writes basic minutes on your phone.
+        With a key, the transcript is sent to Anthropic's API to write full, polished minutes.
+        The key is stored only on this device. Get one at console.anthropic.com.</p>
+      <label class="check"><input type="checkbox" name="saveAudio"> Also save an audio recording</label>
+      <p class="hint small">Some Android phones can't record audio and transcribe at the same time — turn this off if transcription stops working.</p>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn primary" value="save" id="saveSettingsBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog" class="form">
+      <p id="confirmText"></p>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn primary" value="ok" id="confirmOk">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
