@@ -27,7 +27,7 @@ The app has to be served over **HTTPS**. The easiest free option is GitHub Pages
 
 Other options: drag the `meeting-minutes` folder onto <https://app.netlify.com/drop>, or use any static web host.
 
-Then on the phone:
+Then on the phone (or scan [`install-qr.png`](install-qr.png), which opens the GitHub Pages address for this repository):
 
 - **Android (Chrome):** open the link, then tap **⋮ → Install app** (or *Add to Home screen*).
 - **iPhone (Safari):** open the link, then tap **Share → Add to Home Screen**.
