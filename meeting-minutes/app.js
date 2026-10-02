@@ -39,6 +39,18 @@ function toast(msg, ms = 3000) {
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
+// In-app confirmation (native confirm() is blocked in some app views).
+function askConfirm(message, okLabel = 'OK') {
+  const dlg = $('confirmDialog');
+  $('confirmText').textContent = message;
+  $('confirmOk').textContent = okLabel;
+  dlg.returnValue = '';
+  dlg.showModal();
+  return new Promise((resolve) => {
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+  });
+}
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function showView(name, title) {
@@ -92,6 +104,44 @@ $('meetingList').onclick = (e) => {
   if (li) location.hash = `#/m/${li.dataset.id}`;
 };
 $('newMeetingBtn').onclick = () => { location.hash = '#/new'; };
+$('sampleBtn').onclick = async () => {
+  const m = sampleMeeting();
+  await store.saveMeeting(m);
+  location.hash = `#/m/${m.id}`;
+};
+
+// A realistic example meeting so the app can be tried without recording.
+function sampleMeeting() {
+  const lines = [
+    ['Sara', "Good morning everyone, let's start with the budget review."],
+    ['Sara', 'We have spent about 80 percent of the marketing budget this quarter.'],
+    ['Ali', 'I think we should cut the print advertising, it is not bringing many leads.'],
+    ['John', 'Agreed. Online ads gave us three times more sign-ups last month.'],
+    ['Sara', 'So we agreed to move ten thousand dollars from print to online ads.'],
+    ['Sara', 'I will prepare the revised budget by Friday.'],
+    ['Ali', 'Next item, the project timeline. The website launch is slipping by two weeks.'],
+    ['John', 'The developers are waiting on the payment provider to approve our account.'],
+    ['Ali', 'John needs to call the payment provider tomorrow and push for approval.'],
+    ['Sara', 'We decided to keep the launch date of March 15 for now and review it next week.'],
+    ['John', 'Is the testing team ready for the launch? Not sure, we should revisit that next time.'],
+    ['Sara', 'Next meeting is on Monday at 10am. Thanks everyone.'],
+  ];
+  const segments = lines.map(([speaker, text], i) => ({ t: i * 41000 + 5000, speaker, text }));
+  segments.splice(6, 0, { t: 240000, note: true, text: 'Action: Ali to share the updated media plan with the team' });
+  return {
+    id: crypto.randomUUID?.() || String(Date.now()),
+    title: 'Marketing weekly (example)',
+    attendees: ['Sara', 'Ali', 'John'],
+    agenda: ['Budget review', 'Project timeline'],
+    location: 'Room 4',
+    createdAt: Date.now(),
+    durationMs: 9 * 60000 + 12000,
+    segments,
+    minutes: '',
+    minutesSource: '',
+    hasAudio: false,
+  };
+}
 
 /* ---------------- setup ---------------- */
 
@@ -393,7 +443,7 @@ $('saveTranscriptBtn').onclick = () => saveTranscriptEdits(true);
 
 $('generateBtn').onclick = async () => {
   if (!current.segments.length) { toast('There is no transcript to summarise yet.'); return; }
-  if (current.minutes && !confirm('Replace the current minutes (including any edits)?')) return;
+  if (current.minutes && !(await askConfirm('Replace the current minutes, including any edits?', 'Replace'))) return;
   setEditing(false);
   const btn = $('generateBtn');
   btn.disabled = true;
@@ -412,7 +462,7 @@ $('generateBtn').onclick = async () => {
     await store.saveMeeting(current);
   } catch (err) {
     toast(err.message || String(err), 7000);
-    if (!current.minutes && confirm(`${err.message}\n\nWrite basic minutes on the phone instead?`)) {
+    if (!current.minutes && await askConfirm(`${err.message} Write basic minutes on the phone instead?`, 'Write basic minutes')) {
       current.minutes = generateBasic(current);
       current.minutesSource = 'basic';
       await store.saveMeeting(current);
@@ -496,7 +546,7 @@ $('audioBtn').onclick = async () => {
   });
 };
 $('deleteBtn').onclick = async () => {
-  if (!confirm('Delete this meeting, its transcript and minutes? This cannot be undone.')) return;
+  if (!(await askConfirm('Delete this meeting, its transcript and minutes? This cannot be undone.', 'Delete'))) return;
   await store.deleteMeeting(current.id);
   location.hash = '#/';
 };

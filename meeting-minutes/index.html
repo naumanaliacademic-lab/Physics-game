@@ -29,6 +29,7 @@
       <h2 class="section-title">Past meetings</h2>
       <ul class="meeting-list" id="meetingList"></ul>
       <p class="empty" id="emptyList">No meetings yet. Tap <b>New meeting</b> to start.</p>
+      <button class="btn" id="sampleBtn">Try an example meeting</button>
     </section>
 
     <!-- Setup -->
@@ -116,10 +117,10 @@
       <label>Speech language
         <select name="lang" id="langSelect"></select>
       </label>
-      <label>Claude API key <small>(optional, for AI-written minutes)</small>
+      <label id="apiKeyField">Claude API key <small>(optional, for AI-written minutes)</small>
         <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
       </label>
-      <p class="hint small">Without a key the app still writes basic minutes on your phone.
+      <p class="hint small" id="apiKeyHint">Without a key the app still writes basic minutes on your phone.
         With a key, the transcript is sent to Anthropic's API to write full, polished minutes.
         The key is stored only on this device. Get one at console.anthropic.com.</p>
       <label class="check"><input type="checkbox" name="saveAudio"> Also save an audio recording</label>
@@ -127,6 +128,16 @@
       <div class="dialog-actions">
         <button class="btn" value="cancel">Cancel</button>
         <button class="btn primary" value="save" id="saveSettingsBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog" class="form">
+      <p id="confirmText"></p>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn primary" value="ok" id="confirmOk">OK</button>
       </div>
     </form>
   </dialog>

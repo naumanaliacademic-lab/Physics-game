@@ -150,7 +150,7 @@ that the their them then there these they this those through to too under until 
 what when where which while who whom why will with would yeah yes you your okay ok um uh so going think thing
 things gonna want one two lot maybe kind sort mean actually basically`.split(/\s+/));
 
-const DECISION_RE = /\b(decided|decision|agreed|we agree|agree that|approved|approve|go with|going with|settled on|resolved|confirmed|final answer|conclusion|let'?s go ahead)\b/i;
+const DECISION_RE = /\b(decided|decision|agreed|we agree|agree that|approved|go with|going with|settled on|resolved|confirmed|final answer|conclusion|let'?s go ahead)\b/i;
 const ACTION_RE = /\b(i'?ll|we'?ll|you'?ll|he'?ll|she'?ll|they'?ll|will (?:send|prepare|draft|share|update|check|call|email|follow|look|organi[sz]e|book|arrange|review|finish|complete|write|create|schedule|contact|set up|sort)|need(?:s)? to|have to|has to|must|action item|to-?do|follow[- ]up|take care of|responsible for|in charge of|assigned?|deadline)\b/i;
 const QUESTION_RE = /(\?\s*$)|\b(not sure|unclear|open question|tbd|to be decided|to be confirmed|pending|revisit|come back to|park (?:this|that)|still need to decide)\b/i;
 const NEXT_RE = /\b(next meeting|meet again|follow-?up meeting|reconvene|catch up next|see you (?:next|on))\b/i;
@@ -198,7 +198,8 @@ export function generateBasic(meeting) {
   // Typed notes can be tagged, e.g. "Decision: …" or "Action: …".
   const tagged = (s, tag) => s.note && new RegExp(`^${tag}s?\\s*[:\\-]`, 'i').test(s.text);
   const untag = (s) => (s.note ? { ...s, text: s.text.replace(/^(decision|action|todo|to-do)s?\s*[:\-]\s*/i, '') } : s);
-  const decisions = all.filter((s) => tagged(s, 'decision') || (!tagged(s, 'action') && DECISION_RE.test(s.text)));
+  const decisions = all.filter((s) => tagged(s, 'decision')
+    || (!tagged(s, 'action') && DECISION_RE.test(s.text) && words(s.text).length >= 4 && !QUESTION_RE.test(s.text)));
   const actions = all.filter((s) => tagged(s, 'action') || tagged(s, 'to-?do')
     || (ACTION_RE.test(s.text) && !decisions.includes(s) && !QUESTION_RE.test(s.text)));
   const questions = all.filter((s) => QUESTION_RE.test(s.text) && !decisions.includes(s) && words(s.text).length > 3);
@@ -232,7 +233,7 @@ export function generateBasic(meeting) {
     const taken = new Set();
     for (const item of meeting.agenda) {
       const keys = new Set(contentWords(item));
-      const related = all.filter((s) => !taken.has(s) && contentWords(s.text).some((w) => keys.has(w)));
+      const related = all.filter((s) => !taken.has(s) && !used.has(s) && contentWords(s.text).some((w) => keys.has(w)));
       const chosen = pick(related, 4);
       chosen.forEach((s) => taken.add(s));
       md.push(`### ${item}`, ...(chosen.length ? chosen.map(bullet) : ['- No specific discussion captured.']), '');
@@ -249,7 +250,9 @@ export function generateBasic(meeting) {
     md.push('## Action Items', '| # | Action | Owner | Due |', '|---|---|---|---|');
     actions.map(untag).forEach((s, i) => {
       const due = s.text.match(DUE_RE);
-      md.push(`| ${i + 1} | ${tidy(s.text).replace(/\|/g, '/')} | ${findOwner(s, meeting.attendees)} | ${due ? due[2] : 'TBC'} |`);
+      // "I will prepare…" reads better as "Sara will prepare…".
+      const text = s.speaker ? s.text.replace(/^(I'?ll|I will)\b/i, `${s.speaker} will`) : s.text;
+      md.push(`| ${i + 1} | ${tidy(text).replace(/\|/g, '/')} | ${findOwner(s, meeting.attendees)} | ${due ? due[2] : 'TBC'} |`);
     });
     md.push('');
   }
