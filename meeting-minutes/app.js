@@ -1,6 +1,7 @@
 import * as store from './store.js';
 import {
-  fmtClock, transcriptToText, textToTranscript, generateWithClaude, generateBasic, renderMarkdown,
+  fmtClock, transcriptToText, textToTranscript, generateWithClaude, generateBasic, renderMarkdown, checkApiKey,
+  buildClaudeAppPrompt, minutesFromPastedReply,
 } from './minutes.js';
 
 const $ = (id) => document.getElementById(id);
@@ -405,8 +406,17 @@ async function showMeeting(id) {
   $('transcriptEditor').value = transcriptToText(m.segments);
   $('audioBtn').hidden = !m.hasAudio;
   $('resumeBtn').hidden = !SpeechRecognition;
-  $('genHint').textContent = settings.apiKey ? 'Written by Claude' : 'Basic, on-device (add a Claude key in Settings for AI minutes)';
+  updateGenHint();
 }
+
+function updateGenHint() {
+  const broken = settings.apiKey && settings.keyOk === false;
+  $('genHint').textContent = !settings.apiKey ? 'Generate writes basic minutes on the phone. For AI minutes, use your Claude app.'
+    : broken ? 'Your Claude key isn\'t working.' : 'AI minutes by Claude';
+  $('addKeyBtn').textContent = broken ? 'Fix Claude key' : 'Add Claude key';
+  $('addKeyBtn').hidden = !!settings.apiKey && !broken;
+}
+$('addKeyBtn').onclick = () => { $('settingsBtn').click(); setTimeout(() => $('settingsForm').apiKey.focus(), 50); };
 
 function renderMinutes() {
   const has = !!current.minutes;
@@ -472,6 +482,89 @@ $('generateBtn').onclick = async () => {
     renderMinutes();
   }
 };
+
+/* ---------------- Claude app (no API key) ---------------- */
+
+// Copies text, falling back to a hidden textarea where the async clipboard API is missing.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    ta.remove();
+    return ok;
+  }
+}
+
+$('claudeAppBtn').onclick = () => {
+  if (!current.segments.length) { toast('There is no transcript yet. Record the meeting or paste a transcript first.'); return; }
+  const dlg = $('claudeAppDialog');
+  dlg.returnValue = '';
+  $('caReply').value = '';
+  $('caCopyStatus').textContent = '';
+  $('caShareBtn').hidden = !navigator.share;
+  dlg.showModal();
+};
+
+$('caCopyBtn').onclick = async () => {
+  const ok = await copyText(buildClaudeAppPrompt(current));
+  $('caCopyStatus').textContent = ok
+    ? 'Copied. Now open Claude, paste it into a new chat and send.'
+    : 'Copying isn\'t allowed here. Try Share to Claude app instead.';
+};
+
+$('caShareBtn').onclick = async () => {
+  try {
+    await navigator.share({ title: current.title, text: buildClaudeAppPrompt(current) });
+    $('caCopyStatus').textContent = 'Shared. Send it in Claude, then copy Claude\'s reply.';
+  } catch (err) {
+    if (err.name !== 'AbortError') toast('Sharing didn\'t work. Use Copy for Claude instead.');
+  }
+};
+
+$('caPasteBtn').onclick = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text.trim()) $('caReply').value = text;
+    else toast('The clipboard is empty. Copy Claude\'s reply first.');
+  } catch {
+    toast('Long-press the box below and choose Paste.');
+    $('caReply').focus();
+  }
+};
+
+$('claudeAppForm').addEventListener('submit', (e) => {
+  const reply = $('caReply').value.trim();
+  if (!reply) {
+    e.preventDefault();
+    toast('Paste Claude\'s reply into the box first.');
+  } else if (reply.includes('<transcript>')) {
+    e.preventDefault();
+    toast('That\'s the text for Claude. Send it in Claude, then copy Claude\'s reply.', 6000);
+  }
+});
+
+$('claudeAppDialog').addEventListener('close', async () => {
+  if ($('claudeAppDialog').returnValue !== 'ok') return;
+  const reply = $('caReply').value.trim();
+  if (!reply) return;
+  if (current.minutes && !(await askConfirm('Replace the current minutes with Claude\'s reply?', 'Replace'))) return;
+  current.minutes = minutesFromPastedReply(current, reply);
+  current.minutesSource = 'claude-app';
+  await store.saveMeeting(current);
+  setEditing(false);
+  renderMinutes();
+  toast('Minutes saved');
+});
 
 function setEditing(on) {
   $('minutesEditor').hidden = !on;
@@ -554,23 +647,74 @@ $('deleteBtn').onclick = async () => {
 /* ---------------- settings dialog ---------------- */
 
 $('langSelect').innerHTML = LANGUAGES.map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
+// Cancel buttons close their dialog without submitting, so pressing Enter or
+// Go on the phone keyboard always means Save / OK.
+document.querySelectorAll('[data-close]').forEach((b) => {
+  b.onclick = () => b.closest('dialog').close('cancel');
+});
+
+function renderKeyStatus() {
+  const el = $('keyStatus');
+  el.className = 'key-status small';
+  if (!settings.apiKey) {
+    el.textContent = 'No key saved. Minutes are written on the phone.';
+  } else if (settings.keyOk === false) {
+    el.textContent = `Key ending …${settings.apiKey.slice(-4)} didn't work last time it was checked.`;
+    el.classList.add('bad');
+  } else {
+    el.textContent = `✓ Key saved (ending …${settings.apiKey.slice(-4)})`;
+    el.classList.add('ok');
+  }
+}
+
 $('settingsBtn').onclick = () => {
   const f = $('settingsForm');
   f.lang.value = settings.lang;
   f.apiKey.value = settings.apiKey;
   f.saveAudio.checked = settings.saveAudio;
+  renderKeyStatus();
   $('settingsDialog').showModal();
 };
+
+async function verifyKey(key) {
+  toast('Checking your Claude key…', 10000);
+  try {
+    await checkApiKey(key);
+    if (settings.apiKey !== key) return;
+    settings.keyOk = true;
+    toast('Claude key works. Minutes will be written by Claude.', 4000);
+  } catch (err) {
+    if (settings.apiKey !== key) return;
+    // A connection problem says nothing about the key itself.
+    if (/internet|reach Claude|library/i.test(err.message)) {
+      toast(`Key saved. ${err.message}`, 6000);
+      return;
+    }
+    settings.keyOk = false;
+    toast(err.message, 9000);
+  }
+  saveSettings();
+  if (current && !$('meetingView').hidden) updateGenHint();
+}
+
 $('settingsDialog').addEventListener('close', () => {
   if ($('settingsDialog').returnValue !== 'save') return;
   const f = $('settingsForm');
-  settings = { ...settings, lang: f.lang.value, apiKey: f.apiKey.value.trim(), saveAudio: f.saveAudio.checked };
+  // Pasted keys often pick up spaces or line breaks.
+  const apiKey = f.apiKey.value.replace(/\s+/g, '');
+  const keyChanged = apiKey !== settings.apiKey;
+  settings = { ...settings, lang: f.lang.value, apiKey, saveAudio: f.saveAudio.checked };
+  if (keyChanged) delete settings.keyOk;
   saveSettings();
   if (recorder) recorder.rec.lang = settings.lang;
-  if (current && !$('meetingView').hidden) {
-    $('genHint').textContent = settings.apiKey ? 'Written by Claude' : 'Basic, on-device (add a Claude key in Settings for AI minutes)';
+  if (current && !$('meetingView').hidden) updateGenHint();
+  if (apiKey && !apiKey.startsWith('sk-ant-')) {
+    toast('Saved, but this doesn\'t look like a Claude API key. Keys start with "sk-ant-".', 7000);
+  } else if (apiKey && keyChanged) {
+    verifyKey(apiKey);
+  } else {
+    toast('Settings saved');
   }
-  toast('Settings saved');
 });
 
 /* ---------------- start ---------------- */

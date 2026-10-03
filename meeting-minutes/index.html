@@ -84,7 +84,9 @@
       <div id="minutesTab">
         <div class="card actions-card">
           <button class="btn primary" id="generateBtn">&#10024; Generate minutes</button>
+          <button class="btn" id="claudeAppBtn" type="button">Use my Claude app</button>
           <span class="hint small" id="genHint"></span>
+          <button class="btn small-btn" id="addKeyBtn" type="button" hidden>Add Claude key</button>
         </div>
         <div id="minutesPreview" class="card minutes"></div>
         <textarea id="minutesEditor" class="card editor" hidden></textarea>
@@ -118,16 +120,54 @@
         <select name="lang" id="langSelect"></select>
       </label>
       <label id="apiKeyField">Claude API key <small>(optional, for AI-written minutes)</small>
-        <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+        <input name="apiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-api03-…">
       </label>
+      <p class="key-status small" id="keyStatus"></p>
       <p class="hint small" id="apiKeyHint">Without a key the app still writes basic minutes on your phone.
         With a key, the transcript is sent to Anthropic's API to write full, polished minutes.
-        The key is stored only on this device. Get one at console.anthropic.com.</p>
+        The key is stored only on this device.</p>
+      <p class="hint small">Get a key: sign in at <b>console.anthropic.com</b>, add credit under <b>Billing</b>,
+        then open <b>API keys → Create key</b> and copy it here. A claude.ai subscription doesn't include API use.</p>
       <label class="check"><input type="checkbox" name="saveAudio"> Also save an audio recording</label>
       <p class="hint small">Some Android phones can't record audio and transcribe at the same time — turn this off if transcription stops working.</p>
       <div class="dialog-actions">
-        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn" type="button" data-close>Cancel</button>
         <button class="btn primary" value="save" id="saveSettingsBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Write minutes with the Claude app or claude.ai, no API key needed -->
+  <dialog id="claudeAppDialog">
+    <form method="dialog" class="form" id="claudeAppForm">
+      <h2>Write with your Claude app</h2>
+      <p class="hint small">Free with your claude.ai account. No API key needed.</p>
+      <ol class="steps">
+        <li>
+          <b>Copy the meeting</b> with instructions for Claude.
+          <div class="step-actions">
+            <button class="btn primary" type="button" id="caCopyBtn">Copy for Claude</button>
+            <button class="btn" type="button" id="caShareBtn" hidden>Share to Claude app</button>
+          </div>
+          <span class="hint small" id="caCopyStatus" role="status"></span>
+        </li>
+        <li>
+          <b>Open Claude</b>, paste it into a new chat, and send.
+          <div class="step-actions">
+            <a class="btn" id="caOpenLink" href="https://claude.ai/new" target="_blank" rel="noopener">Open Claude</a>
+          </div>
+        </li>
+        <li>
+          <b>Copy Claude's reply</b> with its Copy button, come back, and paste it below.
+          <div class="step-actions">
+            <button class="btn" type="button" id="caPasteBtn">Paste</button>
+          </div>
+        </li>
+      </ol>
+      <textarea id="caReply" rows="7" placeholder="Paste Claude's minutes here"></textarea>
+      <div class="dialog-actions">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn primary" value="ok" id="caUseBtn">Use these minutes</button>
       </div>
     </form>
   </dialog>
@@ -136,7 +176,7 @@
     <form method="dialog" class="form">
       <p id="confirmText"></p>
       <div class="dialog-actions">
-        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn" type="button" data-close>Cancel</button>
         <button class="btn primary" value="ok" id="confirmOk">OK</button>
       </div>
     </form>

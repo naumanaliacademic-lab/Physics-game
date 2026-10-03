@@ -9,8 +9,9 @@ It is a **Progressive Web App (PWA)**, so there's no app store. You open it once
 - **Live listening.** The phone's speech recognition transcribes the meeting as people talk. It works in 20+ languages, including English, Urdu, Hindi and Arabic.
 - **Speaker tagging.** Tap an attendee's name when the speaker changes.
 - **Typed notes.** Add notes while recording. Start a note with `Action:` or `Decision:` and it goes straight into that section of the minutes.
-- **Two ways to write minutes:**
-  - **AI minutes (recommended).** Add a Claude API key in Settings and Claude writes polished minutes, fixing speech-recognition mistakes along the way.
+- **Three ways to write minutes:**
+  - **With your Claude app (no API key).** Tap **Use my Claude app**, copy the meeting, paste it into the Claude app or claude.ai, then paste Claude's reply back. It's free with your claude.ai account.
+  - **Automatic AI minutes.** Add a Claude API key in Settings and Claude writes polished minutes in one tap, fixing speech-recognition mistakes along the way.
   - **Basic minutes.** These need no key and no internet. They are written on the phone using keyword and importance rules.
 - **Edit, then share.** Share sheet (WhatsApp, Email, Teams…), copy, Word file (.doc), email, or PDF via Print.
 - **History.** Every meeting is saved on the phone. You can reopen it, edit the transcript, continue recording, or regenerate the minutes.
@@ -27,7 +28,7 @@ The app has to be served over **HTTPS**. The easiest free option is GitHub Pages
 
 Other options: drag the `meeting-minutes` folder onto <https://app.netlify.com/drop>, or use any static web host.
 
-Then on the phone:
+Then on the phone (or scan [`install-qr.png`](install-qr.png), which opens the GitHub Pages address for this repository):
 
 - **Android (Chrome):** open the link, then tap **⋮ → Install app** (or *Add to Home screen*).
 - **iPhone (Safari):** open the link, then tap **Share → Add to Home Screen**.
@@ -41,10 +42,21 @@ The first time you record, allow microphone access.
 3. Tap **Finish**, then **Generate minutes**.
 4. Review it, tap **Edit** to fix anything, then **Share** or export it.
 
-## AI minutes with Claude
+## AI minutes with your Claude app (no API key)
 
-1. Create an API key at <https://console.anthropic.com> (API usage is billed by Anthropic).
-2. In the app open **⚙ Settings** and paste the key.
+1. Open a meeting and tap **Use my Claude app**.
+2. Tap **Copy for Claude** (or **Share to Claude app**), then **Open Claude**. Paste into a new chat and send.
+3. Copy Claude's reply with its **Copy** button, go back to Minutes, tap **Paste**, then **Use these minutes**.
+
+The app adds the meeting title, date and attendees at the top, and drops any chat-style introduction from Claude's reply.
+
+## Automatic AI minutes with a Claude API key
+
+1. Sign in at <https://console.anthropic.com>. Add credit under **Billing**: API use is paid separately, and a claude.ai subscription doesn't include it.
+2. Open **API keys → Create key** and copy the key. It starts with `sk-ant-`.
+3. In the app, open **⚙ Settings** (or tap **Add Claude key** on a meeting), paste the key and tap **Save**.
+
+The app checks the key straight away, at no cost, and tells you whether it works. If the key is wrong or the account has no credit, it says so, and you can fix it under ⚙ Settings.
 
 The key is stored only on your phone. When you tap *Generate minutes*, the transcript is sent directly from your phone to Anthropic's API, and the minutes stream in as they're written.
 
