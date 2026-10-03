@@ -25,8 +25,18 @@
     <!-- Home: list of meetings -->
     <section id="homeView" class="view">
       <button class="btn primary big" id="newMeetingBtn">&#127908; New meeting</button>
-      <p class="hint" id="supportHint" hidden></p>
-      <h2 class="section-title">Past meetings</h2>
+      <p class="notice" id="supportHint" hidden></p>
+      <div class="notice install" id="installCard" hidden>
+        <p id="installText"></p>
+        <div class="row">
+          <button class="btn primary small-btn" id="installBtn" type="button" hidden>Install app</button>
+          <button class="btn small-btn" id="installDismiss" type="button">Not now</button>
+        </div>
+      </div>
+      <div class="list-head">
+        <h2 class="section-title">Past meetings</h2>
+        <input type="search" id="searchInput" placeholder="Search meetings" aria-label="Search meetings" autocomplete="off">
+      </div>
       <ul class="meeting-list" id="meetingList"></ul>
       <p class="empty" id="emptyList">No meetings yet. Tap <b>New meeting</b> to start.</p>
       <button class="btn" id="sampleBtn">Try an example meeting</button>
@@ -36,19 +46,24 @@
     <section id="setupView" class="view" hidden>
       <form id="setupForm" class="card form">
         <label>Meeting title
-          <input name="title" required placeholder="e.g. Weekly team meeting">
+          <input name="title" id="setupTitle" required placeholder="e.g. Weekly team meeting">
+        </label>
+        <label>Meeting type
+          <select name="type" id="setupType"></select>
         </label>
         <label>Attendees <small>(comma separated)</small>
-          <input name="attendees" placeholder="Sara, Ali, John">
+          <input name="attendees" id="setupAttendees" placeholder="Sara, Ali, John">
         </label>
         <label>Agenda <small>(one item per line, optional)</small>
-          <textarea name="agenda" rows="4" placeholder="Budget review&#10;Project timeline"></textarea>
+          <textarea name="agenda" id="setupAgenda" rows="4" placeholder="Budget review&#10;Project timeline"></textarea>
         </label>
         <label>Location / link <small>(optional)</small>
-          <input name="location" placeholder="Room 4 / Zoom">
+          <input name="location" id="setupLocation" placeholder="Room 4 / Zoom">
         </label>
-        <button class="btn primary big" type="submit">&#9679; Start listening</button>
+        <button class="btn primary big" type="submit" id="startBtn">&#9679; Start listening</button>
+        <p class="notice" id="noSpeechHint" hidden></p>
         <button class="btn" type="button" id="pasteInsteadBtn">Paste or type a transcript instead</button>
+        <p class="hint small">Live listening uses your phone's speech service, which sends the audio to Google (Android) or Apple (iPhone) to turn it into text.</p>
       </form>
     </section>
 
@@ -60,12 +75,18 @@
           <span id="recState">Listening</span>
           <span class="timer" id="timer">00:00</span>
         </div>
-        <div class="speakers" id="speakerChips" aria-label="Who is speaking"></div>
-        <p class="hint small">Tap a name when the speaker changes (optional).</p>
+        <p class="rec-problem" id="recProblem" role="alert" hidden></p>
+        <div class="speakers" id="speakerChips" role="group" aria-label="Who is speaking"></div>
+        <p class="hint small" id="speakerHint">Tap a name when the speaker changes (optional).</p>
       </div>
-      <div class="transcript card" id="liveTranscript" aria-live="polite"></div>
+      <div class="transcript card" id="liveTranscript" role="log" aria-label="Live transcript"></div>
+      <div class="quick-row" role="group" aria-label="Quick notes">
+        <button class="btn" type="button" data-quick="★">&#9733; Mark</button>
+        <button class="btn" type="button" data-quick="Decision">Decision</button>
+        <button class="btn" type="button" data-quick="Action">Action</button>
+      </div>
       <div class="note-row">
-        <input id="noteInput" placeholder="Add a note, decision or action…">
+        <input id="noteInput" placeholder="Type a note, decision or action…" aria-label="Note">
         <button class="btn" id="addNoteBtn">Add</button>
       </div>
       <div class="rec-controls">
@@ -77,19 +98,27 @@
     <!-- Meeting detail / minutes -->
     <section id="meetingView" class="view" hidden>
       <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="minutes" role="tab">Minutes</button>
-        <button class="tab" data-tab="transcript" role="tab">Transcript</button>
+        <button class="tab active" data-tab="minutes" role="tab" id="tabMinutes" aria-controls="minutesTab" aria-selected="true">Minutes</button>
+        <button class="tab" data-tab="transcript" role="tab" id="tabTranscript" aria-controls="transcriptTab" aria-selected="false">Transcript</button>
       </div>
 
-      <div id="minutesTab">
+      <div id="minutesTab" role="tabpanel" aria-labelledby="tabMinutes">
         <div class="card actions-card">
-          <button class="btn primary" id="generateBtn">&#10024; Generate minutes</button>
-          <button class="btn" id="claudeAppBtn" type="button">Use my Claude app</button>
-          <span class="hint small" id="genHint"></span>
-          <button class="btn small-btn" id="addKeyBtn" type="button" hidden>Add Claude key</button>
+          <div class="style-row">
+            <label>Type <select id="typeSelect"></select></label>
+            <label>Length <select id="lengthSelect"></select></label>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="generateBtn">&#10024; Generate minutes</button>
+            <button class="btn" id="claudeAppBtn" type="button">Use my Claude app</button>
+          </div>
+          <div class="row">
+            <span class="hint small" id="genHint"></span>
+            <button class="btn small-btn" id="addKeyBtn" type="button" hidden>Add Claude key</button>
+          </div>
         </div>
         <div id="minutesPreview" class="card minutes"></div>
-        <textarea id="minutesEditor" class="card editor" hidden></textarea>
+        <textarea id="minutesEditor" class="card editor" hidden aria-label="Edit minutes"></textarea>
         <div class="export-row" id="exportRow">
           <button class="btn" id="editBtn">&#9998; Edit</button>
           <button class="btn" id="shareBtn">Share</button>
@@ -100,36 +129,51 @@
         </div>
       </div>
 
-      <div id="transcriptTab" hidden>
-        <textarea id="transcriptEditor" class="card editor tall" placeholder="Transcript…"></textarea>
+      <div id="transcriptTab" role="tabpanel" aria-labelledby="tabTranscript" hidden>
+        <textarea id="transcriptEditor" class="card editor tall" placeholder="Transcript…" aria-label="Transcript"></textarea>
+        <p class="hint small">Edits save automatically. Each line looks like <code>[mm:ss] Name: what was said</code>.</p>
         <div class="export-row">
-          <button class="btn" id="saveTranscriptBtn">Save transcript</button>
           <button class="btn" id="resumeBtn">&#127908; Continue recording</button>
           <button class="btn" id="audioBtn" hidden>Download audio</button>
           <button class="btn danger" id="deleteBtn">Delete meeting</button>
         </div>
+        <div class="export-row" id="audioParts" hidden></div>
       </div>
     </section>
   </main>
 
   <!-- Settings -->
-  <dialog id="settingsDialog">
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
     <form method="dialog" class="form" id="settingsForm">
-      <h2>Settings</h2>
+      <h2 id="settingsTitle">Settings</h2>
       <label>Speech language
         <select name="lang" id="langSelect"></select>
       </label>
-      <label id="apiKeyField">Claude API key <small>(optional, for AI-written minutes)</small>
-        <input name="apiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-api03-…">
+      <label>Minutes language
+        <select name="minutesLang" id="minutesLangSelect"></select>
+      </label>
+      <label>Names and terms <small>(optional, helps AI minutes spell them right)</small>
+        <textarea name="glossary" id="glossaryInput" rows="2" placeholder="Nauman, PTA, Ofsted, IB Physics"></textarea>
+      </label>
+      <label id="apiKeyField">Claude API key <small>(optional, for one-tap AI minutes)</small>
+        <input name="apiKey" id="apiKeyInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-api03-…">
       </label>
       <p class="key-status small" id="keyStatus"></p>
-      <p class="hint small" id="apiKeyHint">Without a key the app still writes basic minutes on your phone.
-        With a key, the transcript is sent to Anthropic's API to write full, polished minutes.
-        The key is stored only on this device.</p>
+      <p class="hint small" id="apiKeyHint">Without a key, use "Use my Claude app" for AI minutes, or Generate for basic minutes written on the phone.
+        With a key, the transcript is sent to Anthropic's API. The key is saved unencrypted in this app's storage on this device.</p>
       <p class="hint small">Get a key: sign in at <b>console.anthropic.com</b>, add credit under <b>Billing</b>,
         then open <b>API keys → Create key</b> and copy it here. A claude.ai subscription doesn't include API use.</p>
-      <label class="check"><input type="checkbox" name="saveAudio"> Also save an audio recording</label>
-      <p class="hint small">Some Android phones can't record audio and transcribe at the same time — turn this off if transcription stops working.</p>
+      <label class="check"><input type="checkbox" name="saveAudio" id="saveAudioInput"> Also save an audio recording</label>
+      <p class="hint small">Some Android phones can't record audio and transcribe at the same time. If transcription stops, turn this off.</p>
+      <div class="backup">
+        <b>Backup</b>
+        <p class="hint small">Meetings are stored only on this device. Save a backup file to keep them safe or move them to another phone. Audio isn't included.</p>
+        <div class="row">
+          <button class="btn small-btn" type="button" id="backupBtn">Save backup</button>
+          <button class="btn small-btn" type="button" id="restoreBtn">Restore backup</button>
+          <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+        </div>
+      </div>
       <div class="dialog-actions">
         <button class="btn" type="button" data-close>Cancel</button>
         <button class="btn primary" value="save" id="saveSettingsBtn">Save</button>
@@ -138,9 +182,9 @@
   </dialog>
 
   <!-- Write minutes with the Claude app or claude.ai, no API key needed -->
-  <dialog id="claudeAppDialog">
+  <dialog id="claudeAppDialog" aria-labelledby="caTitle">
     <form method="dialog" class="form" id="claudeAppForm">
-      <h2>Write with your Claude app</h2>
+      <h2 id="caTitle">Write with your Claude app</h2>
       <p class="hint small">Free with your claude.ai account. No API key needed.</p>
       <ol class="steps">
         <li>
@@ -164,7 +208,7 @@
           </div>
         </li>
       </ol>
-      <textarea id="caReply" rows="7" placeholder="Paste Claude's minutes here"></textarea>
+      <textarea id="caReply" rows="7" placeholder="Paste Claude's minutes here" aria-label="Claude's reply"></textarea>
       <div class="dialog-actions">
         <button class="btn" type="button" data-close>Cancel</button>
         <button class="btn primary" value="ok" id="caUseBtn">Use these minutes</button>
@@ -182,7 +226,7 @@
     </form>
   </dialog>
 
-  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>
 </body>

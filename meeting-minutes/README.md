@@ -2,21 +2,24 @@
 
 An app you install on your phone. It listens to a meeting, writes a live transcript, and turns it into meeting minutes: summary, discussion by agenda item, decisions, an action-item table (owner and due date), open questions and next meeting.
 
-It is a **Progressive Web App (PWA)**, so there's no app store. You open it once in the phone's browser and add it to your home screen. It then opens full-screen like any other app and works offline.
+It is a **Progressive Web App (PWA)**, so there's no app store. You open it once in the browser and install it (Android, Windows, Mac) or add it to the Home Screen (iPhone). It then opens like any other app and works offline.
 
 ## Features
 
 - **Live listening.** The phone's speech recognition transcribes the meeting as people talk. It works in 20+ languages, including English, Urdu, Hindi and Arabic.
 - **Speaker tagging.** Tap an attendee's name when the speaker changes.
-- **Typed notes.** Add notes while recording. Start a note with `Action:` or `Decision:` and it goes straight into that section of the minutes.
+- **One-tap notes.** While recording, tap **★ Mark**, **Decision** or **Action** to turn what was just said into a tagged note, or type your own. Tagged notes go straight into that section of the minutes.
+- **Meeting types.** General, board or committee, team stand-up, 1:1, client or project, school staff meeting, and lesson or lecture notes, each with its own minutes layout. Choose **Brief**, **Standard** or **Detailed** length.
+- **Minutes language and glossary.** In Settings, choose the language the minutes are written in (for example English minutes from an Urdu meeting), and list names and terms so AI minutes spell them right.
 - **Three ways to write minutes:**
   - **With your Claude app (no API key).** Tap **Use my Claude app**, copy the meeting, paste it into the Claude app or claude.ai, then paste Claude's reply back. It's free with your claude.ai account.
   - **Automatic AI minutes.** Add a Claude API key in Settings and Claude writes polished minutes in one tap, fixing speech-recognition mistakes along the way.
   - **Basic minutes.** These need no key and no internet. They are written on the phone using keyword and importance rules.
 - **Edit, then share.** Share sheet (WhatsApp, Email, Teams…), copy, Word file (.doc), email, or PDF via Print.
-- **History.** Every meeting is saved on the phone. You can reopen it, edit the transcript, continue recording, or regenerate the minutes.
-- **Optional audio backup.** Save a recording of the meeting next to the transcript.
-- The screen stays on while recording, so transcription doesn't stop.
+- **History and search.** Every meeting is saved on the device. Search titles, transcripts and minutes, reopen a meeting, edit the transcript (edits save automatically), continue recording, or regenerate the minutes.
+- **Backup.** Save all meetings to a backup file and restore them on another phone (Settings → Backup).
+- **Optional audio backup.** Save a recording of the meeting next to the transcript. Audio is saved every 10 seconds, so it survives the app being closed.
+- **Reliable recording.** The screen stays on while recording. If the phone locks or you switch apps, listening restarts when you come back and the gap is marked in the transcript.
 
 ## Install on your phone
 
@@ -30,8 +33,9 @@ Other options: drag the `meeting-minutes` folder onto <https://app.netlify.com/d
 
 Then on the phone (or scan [`install-qr.png`](install-qr.png), which opens the GitHub Pages address for this repository):
 
-- **Android (Chrome):** open the link, then tap **⋮ → Install app** (or *Add to Home screen*).
-- **iPhone (Safari):** open the link, then tap **Share → Add to Home Screen**.
+- **Android (Chrome):** open the link, then tap **⋮ → Install app** (or *Add to Home screen*), or tap **Install app** on the Minutes home screen.
+- **iPhone (Safari):** open the link, then tap **Share → Add to Home Screen**, and switch **off** "Open as Web App" before tapping **Add**. iPhone speech recognition works in Safari but not inside Home Screen web apps, so the icon should open Safari.
+- **Laptop (Chrome or Edge):** open the link and click the install icon in the address bar.
 
 The first time you record, allow microphone access.
 
@@ -65,6 +69,8 @@ The key is stored only on your phone. When you tap *Generate minutes*, the trans
 - Live transcription uses the browser's speech service. On most phones (Chrome on Android, Safari on iPhone) **it needs an internet connection** while recording.
 - Speech recognition labels who is speaking only when you tap a name; it can't tell voices apart by itself.
 - Some Android phones can't record audio and transcribe at the same time. If transcription stops when *Save audio* is on, turn that setting off.
+- **Privacy:** live listening uses the device's speech service, which sends the audio to Google (Android, Chrome) or Apple (iPhone, Safari) to turn it into text. The transcript, minutes and audio are stored only on your device unless you share them or use Claude.
+- On iPhone, live listening needs Siri or Dictation turned on (Settings → General → Keyboard → Enable Dictation).
 - No microphone support in your browser? Use **Paste or type a transcript instead** on the New meeting screen. You can paste a transcript from Zoom, Teams or Meet, for example.
 - Keep the app open on screen during the meeting; phones pause the microphone for background web apps.
 
@@ -74,6 +80,7 @@ The key is stored only on your phone. When you tap *Generate minutes*, the trans
 |---|---|
 | `index.html`, `styles.css` | App screens and styling |
 | `app.js` | Recording, screens, sharing and settings |
-| `minutes.js` | Claude minutes, offline minutes and Markdown rendering |
+| `minutes.js` | Meeting types, Claude prompts, offline minutes, Markdown rendering |
 | `store.js` | On-device storage (IndexedDB) |
-| `sw.js`, `manifest.webmanifest`, `icons/` | Installable app and offline support |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Installable app and offline support (change `VERSION` in `sw.js` on every release) |
+| `vendor/anthropic-sdk.mjs` | The official Anthropic SDK (0.131.0, MIT), bundled so AI minutes work without a third-party CDN |
