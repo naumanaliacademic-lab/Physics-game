@@ -31,10 +31,13 @@ The app has to be served over **HTTPS**. The easiest free option is GitHub Pages
 
 Other options: drag the `meeting-minutes` folder onto <https://app.netlify.com/drop>, or use any static web host.
 
+**Privacy note for GitHub Pages:** every GitHub Pages project on one account shares the same web address (`<user>.github.io`), and with it the browser storage. Pages from your other projects could read Minutes' saved meetings and a saved Claude API key. If you publish other Pages projects with code you don't fully trust, host Minutes on its own address (Netlify Drop, Cloudflare Pages or a custom domain), or don't save an API key and use **Use my Claude app** instead.
+
 Then on the phone (or scan [`install-qr.png`](install-qr.png), which opens the GitHub Pages address for this repository):
 
 - **Android (Chrome):** open the link, then tap **⋮ → Install app** (or *Add to Home screen*), or tap **Install app** on the Minutes home screen.
-- **iPhone (Safari):** open the link, then tap **Share → Add to Home Screen**, and switch **off** "Open as Web App" before tapping **Add**. iPhone speech recognition works in Safari but not inside Home Screen web apps, so the icon should open Safari.
+- **iPhone, iOS 26 or later (Safari):** open the link, tap **Share → Add to Home Screen**, and switch **off** "Open as Web App" before tapping **Add**. iPhone speech recognition works in Safari but not inside Home Screen web apps, so the icon should open Safari.
+- **iPhone, iOS 18 or earlier:** keep using Minutes in Safari and tap **Share → Add to Favourites**. These iOS versions always open Home Screen icons as web apps, where live listening doesn't work.
 - **Laptop (Chrome or Edge):** open the link and click the install icon in the address bar.
 
 The first time you record, allow microphone access.
@@ -62,7 +65,7 @@ The app adds the meeting title, date and attendees at the top, and drops any cha
 
 The app checks the key straight away, at no cost, and tells you whether it works. If the key is wrong or the account has no credit, it says so, and you can fix it under ⚙ Settings.
 
-The key is stored only on your phone. When you tap *Generate minutes*, the transcript is sent directly from your phone to Anthropic's API, and the minutes stream in as they're written.
+The key is stored on this device, unencrypted, in the app's browser storage (see the GitHub Pages privacy note above). When you tap *Generate minutes*, the transcript is sent directly from your phone to Anthropic's API, and the minutes stream in as they're written.
 
 ## Tips and limitations
 
@@ -71,6 +74,7 @@ The key is stored only on your phone. When you tap *Generate minutes*, the trans
 - Some Android phones can't record audio and transcribe at the same time. If transcription stops when *Save audio* is on, turn that setting off.
 - **Privacy:** live listening uses the device's speech service, which sends the audio to Google (Android, Chrome) or Apple (iPhone, Safari) to turn it into text. The transcript, minutes and audio are stored only on your device unless you share them or use Claude.
 - On iPhone, live listening needs Siri or Dictation turned on (Settings → General → Keyboard → Enable Dictation).
+- **Back up your meetings.** They are stored only on the device, and Safari deletes website data for sites you haven't opened for about a week unless they're on the Home Screen. Use Settings → Backup now and then; the app reminds you every two weeks once you have a few meetings.
 - No microphone support in your browser? Use **Paste or type a transcript instead** on the New meeting screen. You can paste a transcript from Zoom, Teams or Meet, for example.
 - Keep the app open on screen during the meeting; phones pause the microphone for background web apps.
 

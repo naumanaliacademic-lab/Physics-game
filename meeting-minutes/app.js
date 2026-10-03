@@ -8,6 +8,9 @@ const $ = (id) => document.getElementById(id);
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// Safari's major version (on iPhone it matches iOS from iOS 26, whose user agent freezes the OS number).
+const safariVersion = +(navigator.userAgent.match(/Version\/(\d+)/)?.[1] || 0);
+const canDialog = typeof HTMLDialogElement === 'function' && 'showModal' in HTMLDialogElement.prototype;
 
 const LANGUAGES = [
   ['en-US', 'English (US)'], ['en-GB', 'English (UK)'], ['en-IN', 'English (India)'], ['en-AU', 'English (Australia)'],
@@ -42,9 +45,13 @@ const minutesOptions = (m) => ({
 /* ---------------- ui helpers ---------------- */
 
 let toastTimer;
-// The toast region stays in the page (only visually hidden) so screen readers announce it.
+// The toast region stays in the page (only faded out) so screen readers announce
+// it. An open dialog makes the rest of the page inert and covers it, so the
+// toast moves into the dialog while one is open.
 function toast(msg, ms = 3500) {
   const el = $('toast');
+  const host = document.querySelector('dialog[open]') || document.body;
+  if (el.parentElement !== host) host.appendChild(el);
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toastTimer);
@@ -57,9 +64,18 @@ function toastOnce(key, msg, ms) {
   toast(msg, ms);
 }
 
+// Safari before 15.4 (iOS 14.5-15.3) has no <dialog> support.
+function openDialog(dlg) {
+  if (canDialog) { dlg.showModal(); return true; }
+  toast('This needs a newer browser (iOS 15.4 or later). Update in Settings → General → Software Update.', 7000);
+  return false;
+}
+
 // In-app confirmation (native confirm() is blocked in some app views).
 function askConfirm(message, okLabel = 'OK') {
   const dlg = $('confirmDialog');
+  // Another question is already on screen: never swap its text or share its answer.
+  if (dlg.open || !canDialog) return Promise.resolve(false);
   $('confirmText').textContent = message;
   $('confirmOk').textContent = okLabel;
   dlg.returnValue = '';
@@ -82,18 +98,23 @@ function showView(name, title) {
 // Keeps the screen on while recording or while Claude is writing.
 const wakeHolders = new Set();
 let wakeLock = null;
+let wakeRequest = null;
 async function holdWake(reason) {
   wakeHolders.add(reason);
-  if (wakeLock || !navigator.wakeLock) return;
+  // One request at a time, so a second call can't leak a lock that is never released.
+  if (wakeLock || wakeRequest || !navigator.wakeLock) return;
   try {
-    const lock = await navigator.wakeLock.request('screen');
-    if (wakeHolders.size) {
+    wakeRequest = navigator.wakeLock.request('screen');
+    const lock = await wakeRequest;
+    if (wakeHolders.size && !wakeLock) {
       wakeLock = lock;
       lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
     } else {
       lock.release().catch(() => {});
     }
-  } catch { /* not allowed right now */ }
+  } catch { /* not allowed right now */ } finally {
+    wakeRequest = null;
+  }
 }
 function releaseWake(reason) {
   wakeHolders.delete(reason);
@@ -120,6 +141,8 @@ function go(hash, { replace = false } = {}) {
 
 async function route() {
   const hash = location.hash || '#/';
+  // A dialog belongs to the screen it was opened on (iPhone swipe-back can leave one open).
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close('cancel'));
   await flushEdits();
   if (recorder && !hash.startsWith('#/record/')) {
     // Leaving the recording screen finishes the recording first.
@@ -152,31 +175,43 @@ async function showHome() {
     allMeetings = [];
     toast(`Couldn't open this phone's storage: ${err.message}`, 8000);
   }
+  // Searchable text is prepared once here, not on every keystroke.
+  searchIndex = new Map(allMeetings.map((m) => {
+    const body = `${(m.segments || []).map((x) => x.text).join(' ')} ${m.minutes || ''}`.normalize('NFC');
+    return [m.id, { title: norm(m.title || ''), all: norm(`${m.title} ${(m.attendees || []).join(' ')} ${body}`), body, bodyNorm: norm(body) }];
+  }));
+  if (!allMeetings.length) $('searchInput').value = '';
   renderMeetingList();
   renderSupportHint();
   renderInstallCard();
+  renderBackupCard();
 }
 
-function snippet(text, q) {
-  const i = norm(text).indexOf(q);
+// Case-insensitive matching that ignores accents on Latin, Greek and Cyrillic
+// letters ("resume" finds "résumé") but keeps the vowel signs of scripts such
+// as Hindi and Bengali, where they change the word. Text keeps its length.
+const norm = (s) => String(s).normalize('NFD')
+  .replace(/([\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}])\p{M}+/gu, '$1').normalize('NFC').toLowerCase();
+let searchIndex = new Map();
+
+function snippet(entry, q) {
+  const i = entry.bodyNorm.indexOf(q);
   if (i < 0) return '';
   const start = Math.max(0, i - 40);
-  return `${start ? '…' : ''}${text.slice(start, i + q.length + 60)}${i + q.length + 60 < text.length ? '…' : ''}`;
+  const end = i + q.length + 60;
+  return `${start ? '…' : ''}${entry.body.slice(start, end)}${end < entry.body.length ? '…' : ''}`;
 }
-// Case- and accent-insensitive matching, so "resume" finds "résumé".
-const norm = (s) => String(s).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 
 function renderMeetingList() {
   const q = norm($('searchInput').value.trim());
-  const list = q ? allMeetings.filter((m) => norm([m.title, m.attendees.join(' '), m.minutes,
-    m.segments.map((s) => s.text).join(' ')].join(' ')).includes(q)) : allMeetings;
+  const list = q ? allMeetings.filter((m) => searchIndex.get(m.id)?.all.includes(q)) : allMeetings;
   $('emptyList').hidden = list.length > 0;
-  $('emptyList').innerHTML = q ? 'No meetings match your search.' : 'No meetings yet. Tap <b>New meeting</b> to start.';
+  $('emptyList').innerHTML = q && allMeetings.length ? 'No meetings match your search.' : 'No meetings yet. Tap <b>New meeting</b> to start.';
   $('sampleBtn').hidden = allMeetings.length > 0;
   document.querySelector('.list-head').hidden = !allMeetings.length;
   $('meetingList').innerHTML = list.map((m) => {
-    const hit = q && !norm(m.title).includes(q)
-      ? snippet(m.segments.map((s) => s.text).join(' ') + ' ' + (m.minutes || ''), q) : '';
+    const entry = searchIndex.get(m.id);
+    const hit = q && entry && !entry.title.includes(q) ? snippet(entry, q) : '';
     return `<li><button class="card meeting-card" data-id="${esc(m.id)}">
       <span class="m-title">${esc(m.title || 'Untitled meeting')}${m.minutes ? '<span class="badge">minutes</span>' : ''}</span>
       <span class="m-meta">${new Date(m.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
@@ -266,8 +301,11 @@ function renderInstallCard() {
     card.hidden = false;
   } else if (isIOS) {
     // On iPhone the speech service only works in Safari, so the Home Screen
-    // icon should open Safari rather than a separate web app.
-    $('installText').innerHTML = 'Add Minutes to your Home Screen: tap <b>Share</b> → <b>Add to Home Screen</b>, and switch <b>off</b> "Open as Web App" so live listening keeps working.';
+    // icon should open Safari rather than a separate web app. Only iOS 26 and
+    // later let you choose that when adding the icon.
+    $('installText').innerHTML = safariVersion >= 26
+      ? 'Add Minutes to your Home Screen: tap <b>Share</b> → <b>Add to Home Screen</b>, and switch <b>off</b> "Open as Web App" so live listening keeps working.'
+      : 'On this iPhone, keep using Minutes in Safari, where live listening works: tap <b>Share</b> → <b>Add to Favourites</b>. A Home Screen icon would open without speech recognition.';
     $('installBtn').hidden = true;
     card.hidden = false;
   } else {
@@ -284,6 +322,24 @@ $('installBtn').onclick = async () => {
 $('installDismiss').onclick = () => {
   try { localStorage.setItem('mm-install-dismissed', '1'); } catch { /* ignore */ }
   $('installCard').hidden = true;
+};
+
+/* Meetings live only on this device (and Safari clears sites that aren't used
+   for a while), so remind people to save a backup now and then. */
+const BACKUP_EVERY = 14 * 24 * 3600 * 1000;
+function renderBackupCard() {
+  const last = Math.max(settings.lastBackupAt || 0, settings.backupSnoozedAt || 0);
+  const due = allMeetings.length >= 3 && Date.now() - last > BACKUP_EVERY;
+  $('backupCard').hidden = !due;
+  if (due) {
+    $('backupText').textContent = `Your ${allMeetings.length} meetings are stored only on this device. Save a backup file so they're safe if the device is lost or the browser clears its storage.`;
+  }
+}
+$('backupNowBtn').onclick = () => saveBackup();
+$('backupLater').onclick = () => {
+  settings.backupSnoozedAt = Date.now() - BACKUP_EVERY / 2; // ask again in a week
+  saveSettings();
+  $('backupCard').hidden = true;
 };
 
 /* ---------------- setup ---------------- */
@@ -339,12 +395,20 @@ async function createMeeting() {
   }
 }
 
+let creating = false;
 $('setupForm').onsubmit = async (e) => {
   e.preventDefault();
-  const m = await createMeeting();
-  if (!m) return;
-  pendingRecord = m.id;
-  go(`#/record/${m.id}`, { replace: true });
+  if (creating) return; // a double tap must not start two recordings
+  creating = true;
+  try {
+    const m = await createMeeting();
+    // Saving can wait (e.g. on another tab); only start if the user is still here.
+    if (!m || location.hash !== '#/new') return;
+    pendingRecord = m.id;
+    go(`#/record/${m.id}`, { replace: true });
+  } finally {
+    creating = false;
+  }
 };
 $('pasteInsteadBtn').onclick = async () => {
   if (!$('setupForm').reportValidity()) return;
@@ -357,16 +421,21 @@ $('pasteInsteadBtn').onclick = async () => {
 /* ---------------- recording ---------------- */
 
 const RETRY_DELAYS = [0, 1000, 3000, 8000, 15000];
+const speechLanguage = () => LANGUAGES.find(([c]) => c === settings.lang)?.[1] || settings.lang;
 const PROBLEMS = {
-  'audio-capture': () => (settings.saveAudio
-    ? 'The microphone is busy. Turn off "Also save an audio recording" in Settings, then tap Resume.'
-    : 'The microphone is busy or missing. Close other apps using it, then tap Resume.'),
+  'audio-capture': () => 'The microphone is busy or missing. Close other apps that use it; Minutes keeps trying.',
   network: () => 'Speech recognition needs the internet on this device. Waiting for a connection…',
   'not-allowed': () => 'Microphone access is blocked. Allow the microphone for this site in your browser settings, then tap Resume.',
-  'service-not-allowed': () => (isIOS
-    ? 'Speech recognition is off. On iPhone, turn on Dictation (Settings → General → Keyboard → Enable Dictation) and use Minutes in Safari, not from a Home Screen web app.'
-    : 'This browser doesn\'t allow speech recognition here. Try Chrome or Safari, or paste a transcript instead.'),
-  'language-not-supported': () => 'This speech language isn\'t available on this device. Pick another one in Settings.',
+  'service-not-allowed': (e) => {
+    if (!isIOS) return 'This browser doesn\'t allow speech recognition here. Try Chrome or Safari, or paste a transcript instead.';
+    // WebKit also uses this error when the chosen language can't be recognised.
+    if (/not available|unavailable|language/i.test(e?.message || '')) {
+      return `iPhone speech recognition isn't available for ${speechLanguage()} right now. Check your internet connection or pick another speech language in Settings. You can also paste a transcript instead.`;
+    }
+    return `Speech recognition is off. On iPhone, turn on Dictation (Settings → General → Keyboard → Enable Dictation), use Minutes in Safari rather than a Home Screen web app, and check that ${speechLanguage()} is supported. You can also paste a transcript instead.`;
+  },
+  'language-not-supported': () => `${speechLanguage()} isn't available for speech on this device. Pick another speech language in Settings.`,
+  'keeps-stopping': () => 'Listening keeps stopping. If Minutes is open in another tab or window, close it there.',
 };
 const normText = (s) => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim();
 
@@ -402,13 +471,15 @@ class Recorder {
 
     rec.onresult = (e) => {
       this.failures = 0;
+      this.heard = true;
       if (this.problem && !this.fatal) this.setProblem('');
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
         const text = r[0].transcript.trim();
         if (r.isFinal) {
-          // Chrome on Android can deliver the same finished phrase more than once.
+          // Chrome on Android can deliver the same finished phrase more than once
+          // in a session; both checks only look within the current session.
           if (i < this.committed) continue;
           this.committed = i + 1;
           if (text && normText(text) !== normText(this.lastFinal)) {
@@ -424,26 +495,32 @@ class Recorder {
     };
 
     rec.onerror = (e) => {
-      if (e.error === 'no-speech' || e.error === 'aborted') return; // normal; restarts on 'end'
-      if (e.error === 'not-allowed' && document.visibilityState === 'hidden') {
-        this.suspended = true; // the page was hidden, not a real permission problem
+      if (e.error === 'aborted') { this.aborted = true; return; }
+      if (e.error === 'no-speech') return; // silence; restarts on 'end'
+      // Follow-up errors from a session the browser refused while hidden.
+      if (this.suspended) return;
+      // Phones refuse to listen in the background ('not-allowed'), and iPhones
+      // mute the microphone then ('audio-capture'). That isn't a real failure.
+      if ((e.error === 'not-allowed' || e.error === 'audio-capture') && document.visibilityState === 'hidden') {
+        this.suspendListening();
         return;
       }
-      const message = (PROBLEMS[e.error] || (() => `Speech recognition stopped (${e.error}). Tap Resume to try again.`))();
+      const message = (PROBLEMS[e.error] || (() => `Speech recognition stopped (${e.error}). Minutes keeps trying.`))(e);
       if (['not-allowed', 'service-not-allowed', 'language-not-supported'].includes(e.error)) {
         this.fatal = true;
         this.setProblem(message);
         this.pause();
-      } else {
-        this.failures++;
-        if (e.error === 'audio-capture' && this.media && this.media.state !== 'inactive') {
-          // Audio recording can starve recognition on some phones; transcription matters more.
-          this.stopAudio();
-          this.setProblem('Audio recording was turned off so live transcription can use the microphone.');
-          return;
-        }
-        if (this.failures >= 2 || e.error === 'network') this.setProblem(message);
+        return;
       }
+      this.failures++;
+      this.counted = true;
+      if (e.error === 'audio-capture' && this.media && this.media.state !== 'inactive' && this.failures >= 2) {
+        // Audio recording can starve recognition on some phones; transcription matters more.
+        this.stopAudio();
+        this.setProblem('Audio recording was turned off so live transcription can use the microphone.');
+        return;
+      }
+      if (this.failures >= 2 || e.error === 'network') this.setProblem(message);
     };
 
     // Phones end recognition after every pause in speech (Chrome on Android
@@ -452,13 +529,20 @@ class Recorder {
       if (this.stopped) return;
       if (this.interim) {
         this.addSegment({ speaker: this.sessionSpeaker, text: this.interim });
-        this.lastFinal = this.interim;
         this.interim = '';
         this.onUpdate();
+        // The app may be killed in the background before the debounced save.
+        if (document.visibilityState === 'hidden') this.saveNow();
       }
-      if (!this.running || this.fatal) return;
-      if (document.visibilityState === 'hidden') { this.suspended = true; return; }
-      const delay = RETRY_DELAYS[Math.min(this.failures, RETRY_DELAYS.length - 1)];
+      if (!this.running || this.fatal || this.suspended) return;
+      // A session cut off at once without hearing anything (e.g. Minutes open in
+      // two tabs, fighting over the microphone) counts as a failure, so the
+      // restarts back off instead of looping. Deliberate restarts don't count.
+      if (!this.heard && !this.intentional && !this.counted && Date.now() - this.sessionAt < 1500) {
+        this.failures++;
+        if (this.failures >= 3 && !this.problem) this.setProblem(PROBLEMS['keeps-stopping']());
+      }
+      const delay = this.intentional ? 0 : RETRY_DELAYS[Math.min(this.failures, RETRY_DELAYS.length - 1)];
       clearTimeout(this.restartTimer);
       if (delay) this.restartTimer = setTimeout(() => this.listen(), delay);
       else this.listen();
@@ -471,16 +555,38 @@ class Recorder {
   // Starts one recognition session, unless the recorder has since been paused or stopped.
   listen() {
     if (!this.running || this.fatal || this.stopped || this.suspended || recorder !== this) return;
-    this.sessionSpeaker = this.speaker;
-    this.committed = 0;
     try {
       this.rec.start();
     } catch (err) {
+      // Still ending the previous session: its 'end' will call listen() again.
       if (err.name !== 'InvalidStateError') {
         clearTimeout(this.restartTimer);
         this.restartTimer = setTimeout(() => this.listen(), 500);
       }
+      return;
     }
+    // Only now does a new session exist, so the old phrase keeps its speaker.
+    this.sessionSpeaker = this.speaker;
+    this.committed = 0;
+    this.lastFinal = '';
+    this.heard = false;
+    this.aborted = false;
+    this.counted = false;
+    this.intentional = false;
+    this.sessionAt = Date.now();
+  }
+
+  // Ends the session on purpose (speaker or language change); restarts at once.
+  restartNow() {
+    if (!this.running || this.suspended) return;
+    this.intentional = true;
+    try { this.rec.stop(); } catch { /* not started */ }
+  }
+
+  suspendListening() {
+    if (this.suspended) return;
+    this.suspended = true;
+    this.stoppedAt = this.elapsed();
   }
 
   setProblem(text) {
@@ -493,8 +599,10 @@ class Recorder {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (this.stopped) { this.stream.getTracks().forEach((t) => t.stop()); return; }
       this.media = new MediaRecorder(this.stream);
-      // Each recording session becomes its own audio file; chunks are saved as they arrive.
-      this.audioSession = (this.meeting.audioSessions || 0) + 1;
+      // Each recording session becomes its own audio file, numbered after what is
+      // already stored so old audio is never overwritten.
+      const next = await store.nextAudioSession(this.meeting.id).catch(() => 1);
+      this.audioSession = Math.max((this.meeting.audioSessions || 0) + 1, next);
       this.meeting.audioSessions = this.audioSession;
       this.audioSeq = 0;
       this.media.ondataavailable = (e) => {
@@ -507,6 +615,7 @@ class Recorder {
           })
           .catch(() => toastOnce('audio-save', 'Audio couldn\'t be saved (storage may be full). Transcription continues.', 6000));
       };
+      if (this.stopped) { this.stream.getTracks().forEach((t) => t.stop()); return; }
       this.media.start(10000);
       if (!this.running) this.media.pause();
     } catch {
@@ -534,24 +643,25 @@ class Recorder {
     this.saveTimer = setTimeout(() => this.saveNow(), 800);
   }
 
-  saveNow() {
+  saveNow(snapshot = this.meeting) {
     clearTimeout(this.saveTimer);
     this.meeting.durationMs = this.elapsed();
-    return store.saveMeeting(this.meeting).catch(() => toastOnce('save', 'Couldn\'t save to this device\'s storage. Free up some space and keep the app open.', 8000));
+    return store.saveMeeting(snapshot).catch(() => toastOnce('save', 'Couldn\'t save to this device\'s storage. Free up some space and keep the app open.', 8000));
   }
 
   setSpeaker(name) {
     this.speaker = name;
-    // Ending the session makes the browser finish the current phrase for the
-    // previous speaker; the next session starts at once with the new speaker.
-    if (this.running && !this.suspended) {
-      try { this.rec.stop(); } catch { /* not started */ }
-    }
+    // Nothing being recognised: the next words simply belong to the new
+    // speaker. Restarting would leave the microphone deaf for a moment.
+    if (!this.interim) { this.sessionSpeaker = name; return; }
+    // A phrase is in progress: ending the session makes the browser finish it
+    // for the previous speaker, and the next session starts with the new one.
+    this.restartNow();
   }
 
   setLanguage(lang) {
     this.rec.lang = lang;
-    if (this.running) { try { this.rec.stop(); } catch { /* restarts on end */ } }
+    this.restartNow();
   }
 
   resume() {
@@ -580,30 +690,50 @@ class Recorder {
     this.onState();
   }
 
-  // Called when the app goes to the background. Phones stop listening then
-  // ('end' marks the recorder suspended); laptops may carry on.
+  // Called when the app goes to the background. Phones stop listening then;
+  // laptops may carry on. Save everything now, because a phone may close the
+  // app in the background without warning.
   suspend() {
     if (!this.running) return;
     this.hiddenAt = this.elapsed();
-    this.saveNow();
+    if (this.media?.state === 'recording') { try { this.media.requestData(); } catch { /* inactive */ } }
+    // The words being recognised right now are saved as a provisional last line
+    // (they stay out of the live list, since a laptop may still finish them).
+    this.saveNow(this.interim
+      ? { ...this.meeting, segments: [...this.meeting.segments, { t: this.elapsed(), speaker: this.sessionSpeaker, text: this.interim }] }
+      : this.meeting);
   }
 
   // Called when the app comes back: if listening stopped, restart it and note the gap.
   wake() {
-    if (!this.running || this.fatal || !this.suspended) { this.hiddenAt = null; return; }
+    const hiddenAt = this.hiddenAt;
+    this.hiddenAt = null;
+    if (!this.running || this.fatal) return;
+    if (!this.suspended) {
+      // Still listening (laptops) or backing off after errors: retry at once now the app is visible.
+      if (this.failures) {
+        this.failures = 0;
+        if (this.problem) this.setProblem('');
+        clearTimeout(this.restartTimer);
+        this.listen();
+      }
+      return;
+    }
     this.suspended = false;
-    const gapFrom = this.hiddenAt ?? this.elapsed();
+    const gapFrom = this.stoppedAt ?? hiddenAt ?? this.elapsed();
+    this.stoppedAt = null;
     if (this.elapsed() - gapFrom > 3000) {
       this.addSegment({ note: true, text: `Listening paused while the app was in the background (${fmtClock(gapFrom)}–${fmtClock(this.elapsed())})` });
       this.onUpdate();
     }
-    this.hiddenAt = null;
     this.failures = 0;
+    if (this.problem && !this.fatal) this.setProblem('');
     this.listen();
     holdWake('recording');
     toast('Listening again');
   }
 
+  // Returns whether the meeting reached the device's storage.
   async stop() {
     this.offset = this.elapsed();
     this.running = false;
@@ -636,7 +766,8 @@ class Recorder {
     this.stream?.getTracks().forEach((t) => t.stop());
     await this.chunkWrites;
     try { await store.saveMeeting(this.meeting); saved = true; } catch { /* reported below */ }
-    if (!saved) toast('Couldn\'t save this meeting to the device\'s storage. Free up space; the transcript is still on screen.', 9000);
+    if (!saved) toast('Couldn\'t save this meeting to the device\'s storage. Free up some space and keep Minutes open; it will try again.', 9000);
+    return saved;
   }
 }
 
@@ -683,6 +814,8 @@ function resetLiveView() {
   renderedCount = 0;
   interimEl = document.createElement('p');
   interimEl.className = 'seg interim';
+  // Half-recognised words change several times a second; screen readers skip them.
+  interimEl.setAttribute('aria-hidden', 'true');
   el.appendChild(interimEl);
   renderLive();
 }
@@ -791,14 +924,20 @@ document.querySelector('.quick-row').onclick = (e) => {
   toast(tag === '★' ? 'Marked as important' : `Saved as ${tag.toLowerCase()}`, 1800);
 };
 
+// Meetings whose last save failed stay in memory, so the transcript isn't lost
+// before storage frees up; showMeeting uses this copy and saves it again.
+const unsaved = new Map();
+
 async function finishRecording(navigate = true) {
   if (!recorder) return;
   const r = recorder;
   recorder = null;
   clearInterval(timerInterval);
+  let saved = false;
   try {
-    await r.stop();
+    saved = await r.stop();
   } finally {
+    if (!saved) unsaved.set(r.meeting.id, r.meeting);
     if (navigate) go(`#/m/${r.meeting.id}`, { replace: true });
   }
 }
@@ -828,11 +967,21 @@ window.addEventListener('beforeunload', (e) => {
 
 /* ---------------- meeting / minutes ---------------- */
 
-const generating = new Set(); // ids of meetings whose minutes are being written
+// Meetings whose minutes are being written, with the text streamed so far.
+const generating = new Map();
 
 async function showMeeting(id) {
-  let m;
-  try { m = await store.getMeeting(id); } catch { m = null; }
+  let m = unsaved.get(id);
+  if (m) {
+    try {
+      await store.saveMeeting(m);
+      unsaved.delete(id);
+    } catch {
+      toast('This meeting isn\'t saved yet because the device\'s storage is full. Free up space, or copy the transcript now.', 9000);
+    }
+  } else {
+    try { m = await store.getMeeting(id); } catch { m = null; }
+  }
   if (!m) { go('#/', { replace: true }); return; }
   current = m;
   showView('meetingView', m.title || 'Meeting');
@@ -869,7 +1018,11 @@ function renderMinutes() {
   if (!current) return;
   const busy = generating.has(current.id);
   const has = !!current.minutes;
-  if (!busy) {
+  if (busy) {
+    // Always this meeting's own text: never leave another meeting's minutes on screen.
+    const partial = generating.get(current.id);
+    $('minutesPreview').innerHTML = partial ? renderMarkdown(partial) : '<p class="hint">Writing the minutes…</p>';
+  } else {
     $('minutesPreview').innerHTML = has
       ? renderMarkdown(current.minutes)
       : `<p class="hint">${current.segments.length
@@ -879,6 +1032,8 @@ function renderMinutes() {
   $('exportRow').hidden = !has || busy;
   $('generateBtn').disabled = busy;
   $('claudeAppBtn').disabled = busy;
+  // Recording now would save an old copy of the meeting over the new minutes.
+  $('resumeBtn').disabled = busy;
   $('generateBtn').innerHTML = busy ? '<span class="spinner"></span> Writing minutes…'
     : has ? '&#10227; Regenerate minutes' : '&#10024; Generate minutes';
 }
@@ -957,7 +1112,7 @@ $('generateBtn').onclick = async () => {
   const opts = minutesOptions(m);
   const useClaude = settings.apiKey && navigator.onLine !== false;
   const showing = () => current?.id === m.id && !$('meetingView').hidden;
-  generating.add(m.id);
+  generating.set(m.id, '');
   renderMinutes();
   holdWake('generating');
   let minutes = null;
@@ -965,17 +1120,20 @@ $('generateBtn').onclick = async () => {
   try {
     if (useClaude) {
       minutes = await generateWithClaude(m, settings.apiKey, opts, (partial) => {
+        generating.set(m.id, partial);
         if (showing()) $('minutesPreview').innerHTML = renderMarkdown(partial);
       });
       source = 'claude';
+      if (settings.keyOk !== true) { settings.keyOk = true; saveSettings(); }
     } else {
       if (settings.apiKey) toast('You\'re offline, so basic minutes were written on the phone.');
       minutes = generateBasic(m, opts);
       source = 'basic';
     }
   } catch (err) {
+    if (err.kind === 'key') { settings.keyOk = false; saveSettings(); updateGenHint(); }
     toast(err.message || String(err), 8000);
-    if (!m.minutes && showing() && await askConfirm(`${err.message} Write basic minutes on the phone instead?`, 'Write basic minutes')) {
+    if (!m.minutes && showing() && await askConfirm(`${err.message}\n\nWrite basic minutes on the phone instead?`, 'Write basic minutes')) {
       minutes = generateBasic(m, opts);
       source = 'basic';
     }
@@ -984,7 +1142,14 @@ $('generateBtn').onclick = async () => {
     releaseWake('generating');
   }
   if (minutes) {
-    // Save onto the latest copy of the meeting; it may have changed or been deleted meanwhile.
+    // Every copy of this meeting in memory gets the new minutes, so a later save
+    // of any of them (a recording, a queued edit) can't put the old ones back.
+    for (const copy of [m, current, recorder?.meeting, unsaved.get(m.id)]) {
+      if (copy?.id === m.id) { copy.minutes = minutes; copy.minutesSource = source; }
+    }
+    // A transcript edit typed while Claude was writing is saved first, then the
+    // minutes go onto the latest copy (the meeting may also have been deleted).
+    await flushEdits();
     const fresh = await store.getMeeting(m.id).catch(() => null);
     if (fresh) {
       fresh.minutes = minutes;
@@ -1004,6 +1169,8 @@ $('generateBtn').onclick = async () => {
 /* ---------------- Claude app (no API key) ---------------- */
 
 // Copies text, falling back to a hidden textarea where the async clipboard API is missing.
+// Call it before any other await in a tap handler: browsers only allow copying
+// straight after a tap.
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1014,14 +1181,19 @@ async function copyText(text) {
     ta.setAttribute('readonly', '');
     ta.style.position = 'fixed';
     ta.style.opacity = '0';
-    document.body.appendChild(ta);
+    // Outside an open dialog the page is inert, and nothing could be selected.
+    (document.querySelector('dialog[open]') || document.body).appendChild(ta);
+    ta.focus();
     ta.select();
+    ta.setSelectionRange(0, text.length); // iOS needs an explicit range
     let ok = false;
-    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    try { ok = document.execCommand('copy') && ta.selectionEnd - ta.selectionStart === text.length; } catch { /* not supported */ }
     ta.remove();
     return ok;
   }
 }
+
+let caMeeting = null; // the meeting the Claude-app dialog was opened for
 
 $('claudeAppBtn').onclick = async () => {
   await flushEdits();
@@ -1031,19 +1203,24 @@ $('claudeAppBtn').onclick = async () => {
   $('caReply').value = '';
   $('caCopyStatus').textContent = '';
   $('caShareBtn').hidden = !navigator.share;
-  dlg.showModal();
+  caMeeting = current;
+  openDialog(dlg);
 };
 
 $('caCopyBtn').onclick = async () => {
-  const ok = await copyText(buildClaudeAppPrompt(current, minutesOptions(current)));
+  const m = caMeeting;
+  if (!m) return;
+  const ok = await copyText(buildClaudeAppPrompt(m, minutesOptions(m)));
   $('caCopyStatus').textContent = ok
     ? 'Copied. Now open Claude, paste it into a new chat and send.'
     : 'Copying isn\'t allowed here. Try Share to Claude app instead.';
 };
 
 $('caShareBtn').onclick = async () => {
+  const m = caMeeting;
+  if (!m) return;
   try {
-    await navigator.share({ title: current.title, text: buildClaudeAppPrompt(current, minutesOptions(current)) });
+    await navigator.share({ title: m.title, text: buildClaudeAppPrompt(m, minutesOptions(m)) });
     $('caCopyStatus').textContent = 'Shared. Send it in Claude, then copy Claude\'s reply.';
   } catch (err) {
     if (err.name !== 'AbortError') toast('Sharing didn\'t work. Use Copy for Claude instead.');
@@ -1073,9 +1250,10 @@ $('claudeAppForm').addEventListener('submit', (e) => {
 });
 
 $('claudeAppDialog').addEventListener('close', async () => {
+  const m = caMeeting;
+  caMeeting = null;
   if ($('claudeAppDialog').returnValue !== 'ok') return;
   const reply = $('caReply').value.trim();
-  const m = current;
   if (!reply || !m) return;
   if (m.minutes && !(await askConfirm('Replace the current minutes with Claude\'s reply?', 'Replace'))) return;
   m.minutes = minutesFromPastedReply(m, reply);
@@ -1092,7 +1270,7 @@ $('claudeAppDialog').addEventListener('close', async () => {
 /* ---------------- export ---------------- */
 
 const minutesText = () => ($('minutesEditor').hidden ? current.minutes : $('minutesEditor').value);
-const fileName = (ext, suffix = 'minutes') => `${(current.title || 'meeting').replace(/[^\p{L}\p{N}\- ]+/gu, '').trim().replace(/\s+/g, '-') || 'meeting'}-${suffix}.${ext}`;
+const fileName = (ext, suffix = 'minutes') => `${(current.title || 'meeting').replace(/[^\p{L}\p{M}\p{N}\- ]+/gu, '').trim().replace(/\s+/g, '-') || 'meeting'}-${suffix}.${ext}`;
 
 function download(blob, name) {
   const a = document.createElement('a');
@@ -1113,8 +1291,9 @@ function needMinutes() {
 
 $('shareBtn').onclick = async () => {
   if (!needMinutes()) return;
-  await flushEdits();
+  // Share straight after the tap (Safari requires it); the editor's text is read directly.
   const text = toPlainText(minutesText());
+  flushEdits();
   try {
     if (navigator.share) {
       // Plain text shares everywhere; Chrome on Android refuses Markdown files.
@@ -1136,7 +1315,7 @@ $('copyBtn').onclick = async () => {
 };
 $('downloadBtn').onclick = async () => {
   if (!needMinutes()) return;
-  await flushEdits();
+  flushEdits();
   // An HTML document saved as .doc opens in Word, Google Docs and most phone office apps.
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(current.title)}</title>
 <style>body{font-family:Calibri,Arial,sans-serif;line-height:1.4;color:#1b2430}
@@ -1147,19 +1326,19 @@ th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}t
 };
 $('emailBtn').onclick = async () => {
   if (!needMinutes()) return;
-  await flushEdits();
-  const subject = encodeURIComponent(`Minutes: ${current.title}`);
+  // Read and copy before any other wait, so copying still counts as part of the tap.
   const text = toPlainText(minutesText());
-  let body = encodeURIComponent(text);
+  const subject = encodeURIComponent(`Minutes: ${current.title}`.slice(0, 150));
+  const link = (body) => `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+  flushEdits();
   // Mail apps cut off or refuse very long links, so long minutes go via the clipboard.
-  if (body.length > 1800) {
-    const copied = await copyText(text);
-    body = encodeURIComponent(copied
-      ? 'The minutes are on your clipboard: paste them here.\n\n'
-      : 'The minutes are attached.\n\n');
-    toast(copied ? 'Minutes copied. Paste them into the email.' : 'The minutes are too long for an email link. Use Word file or Share instead.', 7000);
+  if (link(text).length <= 1900) { location.href = link(text); return; }
+  if (await copyText(text)) {
+    toast('The minutes are copied. Paste them into the email.', 7000);
+    location.href = link('The minutes are on your clipboard: paste them here.\n\n');
+  } else {
+    toast('The minutes are too long for an email link. Use Word file or Share instead.', 7000);
   }
-  location.href = `mailto:?subject=${subject}&body=${body}`;
 };
 $('printBtn').onclick = async () => {
   if (!needMinutes()) return;
@@ -1170,6 +1349,7 @@ $('printBtn').onclick = async () => {
 };
 
 $('resumeBtn').onclick = async () => {
+  if (generating.has(current.id)) { toast('Wait until the minutes are written, then continue recording.'); return; }
   await flushEdits();
   pendingRecord = current.id;
   go(`#/record/${current.id}`, { replace: true });
@@ -1237,7 +1417,7 @@ function openSettings() {
   $('saveAudioInput').checked = settings.saveAudio;
   renderKeyStatus();
   $('settingsDialog').returnValue = '';
-  $('settingsDialog').showModal();
+  openDialog($('settingsDialog'));
 }
 $('settingsBtn').onclick = openSettings;
 
@@ -1250,9 +1430,10 @@ async function verifyKey(key) {
     toast('Claude key works. Generate will now write minutes with Claude.', 4500);
   } catch (err) {
     if (settings.apiKey !== key) return;
-    // A connection problem says nothing about the key itself.
-    if (/internet|reach Claude|library|newer browser/i.test(err.message)) {
-      toast(`Key saved. ${err.message}`, 7000);
+    // Only a rejected key marks it as broken; connection, busy and account
+    // problems say nothing about the key itself.
+    if (err.kind !== 'key') {
+      toast(`Key saved. ${err.message}`, 8000);
       return;
     }
     settings.keyOk = false;
@@ -1291,34 +1472,62 @@ $('settingsDialog').addEventListener('close', () => {
 
 /* Backup and restore */
 
-$('backupBtn').onclick = async () => {
+async function saveBackup() {
   try {
     const meetings = await store.listMeetings();
     const json = JSON.stringify({ app: 'minutes', version: 1, exportedAt: new Date().toISOString(), meetings }, null, 1);
     const date = new Date().toISOString().slice(0, 10);
     download(new Blob([json], { type: 'application/json' }), `minutes-backup-${date}.json`);
+    settings.lastBackupAt = Date.now();
+    saveSettings();
+    $('backupCard').hidden = true;
     toast(`Backup of ${meetings.length} meeting${meetings.length === 1 ? '' : 's'} saved to your downloads.`, 5000);
   } catch (err) {
     toast(`Couldn't make a backup: ${err.message}`, 7000);
   }
-};
+}
+$('backupBtn').onclick = saveBackup;
+
+// Checks and repairs one meeting from a backup file; returns null if it can't be used.
+function repairMeeting(m) {
+  if (!m || typeof m !== 'object' || typeof m.id !== 'string' || !m.id.trim() || /[\s/#]/.test(m.id)) return null;
+  const strings = (a) => (Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []);
+  const text = (x) => (typeof x === 'string' ? x : '');
+  const segments = (Array.isArray(m.segments) ? m.segments : [])
+    .filter((x) => x && typeof x.text === 'string')
+    .map((x) => ({ t: Number.isFinite(x.t) ? x.t : 0, text: x.text, ...(x.note ? { note: true } : { speaker: text(x.speaker) }) }));
+  return {
+    id: m.id,
+    title: text(m.title) || 'Restored meeting',
+    type: TEMPLATES[m.type] ? m.type : 'general',
+    length: LENGTHS[m.length] ? m.length : 'standard',
+    attendees: strings(m.attendees),
+    agenda: strings(m.agenda),
+    location: text(m.location),
+    createdAt: Number.isFinite(m.createdAt) ? m.createdAt : Date.now(),
+    durationMs: Number.isFinite(m.durationMs) ? m.durationMs : 0,
+    segments,
+    minutes: text(m.minutes),
+    minutesSource: text(m.minutesSource),
+    audioSessions: Number.isFinite(m.audioSessions) ? m.audioSessions : 0,
+  };
+}
+
 $('restoreBtn').onclick = () => $('restoreInput').click();
 $('restoreInput').onchange = async () => {
   const file = $('restoreInput').files[0];
   $('restoreInput').value = '';
   if (!file) return;
-  let meetings;
+  let items = [];
   try {
     const data = JSON.parse(await file.text());
-    meetings = (data?.app === 'minutes' && Array.isArray(data.meetings) ? data.meetings : [])
-      .filter((m) => m && typeof m.id === 'string' && Array.isArray(m.segments) && Array.isArray(m.attendees))
-      .map((m) => ({ agenda: [], minutes: '', minutesSource: '', ...m, hasAudio: false }));
-  } catch {
-    meetings = [];
-  }
+    if (data?.app === 'minutes' && Array.isArray(data.meetings)) items = data.meetings;
+  } catch { /* not JSON */ }
+  const meetings = items.map(repairMeeting).filter(Boolean);
   if (!meetings.length) { toast('That file isn\'t a Minutes backup.', 6000); return; }
+  const skipped = items.length - meetings.length;
   $('settingsDialog').close('cancel');
-  if (!(await askConfirm(`Restore ${meetings.length} meeting${meetings.length === 1 ? '' : 's'} from the backup? If a meeting is already on this device, it's replaced by the backup copy.`, 'Restore'))) return;
+  if (!(await askConfirm(`Restore ${meetings.length} meeting${meetings.length === 1 ? '' : 's'} from the backup?${skipped ? ` ${skipped} damaged item${skipped === 1 ? ' is' : 's are'} skipped.` : ''} If a meeting is already on this device, it's replaced by the backup copy.`, 'Restore'))) return;
   try {
     await store.importMeetings(meetings);
     toast(`Restored ${meetings.length} meeting${meetings.length === 1 ? '' : 's'}.`);
@@ -1331,8 +1540,30 @@ $('restoreInput').onchange = async () => {
 
 /* ---------------- start ---------------- */
 
+// An older copy of Minutes open in another tab blocks the storage upgrade until it closes.
+store.setBlockedHandler(() => toast('Close Minutes in your other tabs or windows to continue.', 15000));
+
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => { /* offline support unavailable */ });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    // A new release installs in the background and is used from the next launch.
+    const announce = () => {
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        toastOnce('update', 'An update to Minutes is ready. Close the app and open it again to use it.', 7000);
+      }
+    };
+    announce();
+    reg.addEventListener('updatefound', () => {
+      reg.installing?.addEventListener('statechange', announce);
+    });
+    // Apps left open for days still check for updates when they come back to the screen.
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastCheck > 3600 * 1000) {
+        lastCheck = Date.now();
+        reg.update().catch(() => {});
+      }
+    });
+  }).catch(() => { /* offline support unavailable */ });
 }
 // Ask the browser not to clear the meetings when storage runs low.
 navigator.storage?.persist?.().catch(() => {});

@@ -3,6 +3,10 @@ const DB_NAME = 'meeting-minutes';
 const DB_VERSION = 2;
 
 let dbPromise;
+let onBlocked = () => {};
+// Called when an older copy of the app in another tab stops the database upgrading.
+export function setBlockedHandler(fn) { onBlocked = fn; }
+
 function db() {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
@@ -22,7 +26,9 @@ function db() {
         resolve(d);
       };
       req.onerror = () => { dbPromise = null; reject(req.error); };
-      req.onblocked = () => { dbPromise = null; reject(new Error('Close Minutes in your other tabs, then try again.')); };
+      // Keep waiting: the upgrade continues by itself once the other tab closes.
+      // (Starting a new request instead would queue silently behind this one.)
+      req.onblocked = () => onBlocked();
     });
   }
   return dbPromise;
@@ -62,10 +68,38 @@ export const deleteMeeting = (id) => run(['meetings', 'audio', 'chunks'], 'readw
   chunks.delete(chunkRange(id));
 });
 
-// Restores meetings from a backup in one transaction.
-export const importMeetings = (list) => run('meetings', 'readwrite', (s) => {
-  for (const m of list) s.put(m);
+// Restores meetings from a backup in one transaction. Audio isn't in backups,
+// so a meeting keeps any audio still stored on this device, and its session
+// count never goes backwards (a new recording must not overwrite old chunks).
+export const importMeetings = (list) => run(['meetings', 'audio', 'chunks'], 'readwrite', (meetings, audio, chunks) => {
+  for (const m of list) {
+    const existing = meetings.get(m.id);
+    existing.onsuccess = () => {
+      const legacy = audio.getKey(m.id);
+      legacy.onsuccess = () => {
+        const last = chunks.openCursor(chunkRange(m.id), 'prev');
+        last.onsuccess = () => {
+          const lastSession = last.result ? last.result.key[1] : 0;
+          meetings.put({
+            ...m,
+            hasAudio: legacy.result !== undefined || !!last.result,
+            audioSessions: Math.max(existing.result?.audioSessions || 0, m.audioSessions || 0, lastSession),
+          });
+        };
+      };
+    };
+  }
 });
+
+// The next free audio session number for a meeting, read from what is stored.
+export async function nextAudioSession(id) {
+  let last = 0;
+  await run('chunks', 'readonly', (s) => {
+    const req = s.openCursor(chunkRange(id), 'prev');
+    req.onsuccess = () => { if (req.result) last = req.result.key[1]; };
+  });
+  return last + 1;
+}
 
 export const addAudioChunk = (id, session, seq, blob) =>
   run('chunks', 'readwrite', (s) => s.put({ session, blob }, [id, session, seq]));

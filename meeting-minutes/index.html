@@ -33,6 +33,13 @@
           <button class="btn small-btn" id="installDismiss" type="button">Not now</button>
         </div>
       </div>
+      <div class="notice" id="backupCard" hidden>
+        <p id="backupText"></p>
+        <div class="row">
+          <button class="btn primary small-btn" id="backupNowBtn" type="button">Save backup</button>
+          <button class="btn small-btn" id="backupLater" type="button">Not now</button>
+        </div>
+      </div>
       <div class="list-head">
         <h2 class="section-title">Past meetings</h2>
         <input type="search" id="searchInput" placeholder="Search meetings" aria-label="Search meetings" autocomplete="off">
@@ -79,7 +86,7 @@
         <div class="speakers" id="speakerChips" role="group" aria-label="Who is speaking"></div>
         <p class="hint small" id="speakerHint">Tap a name when the speaker changes (optional).</p>
       </div>
-      <div class="transcript card" id="liveTranscript" role="log" aria-label="Live transcript"></div>
+      <div class="transcript card" id="liveTranscript" role="log" aria-live="off" aria-label="Live transcript"></div>
       <div class="quick-row" role="group" aria-label="Quick notes">
         <button class="btn" type="button" data-quick="★">&#9733; Mark</button>
         <button class="btn" type="button" data-quick="Decision">Decision</button>
@@ -216,7 +223,7 @@
     </form>
   </dialog>
 
-  <dialog id="confirmDialog">
+  <dialog id="confirmDialog" role="alertdialog" aria-labelledby="confirmText" aria-describedby="confirmText">
     <form method="dialog" class="form">
       <p id="confirmText"></p>
       <div class="dialog-actions">
