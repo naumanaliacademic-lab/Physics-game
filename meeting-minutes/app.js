@@ -173,6 +173,7 @@ function renderMeetingList() {
   $('emptyList').hidden = list.length > 0;
   $('emptyList').innerHTML = q ? 'No meetings match your search.' : 'No meetings yet. Tap <b>New meeting</b> to start.';
   $('sampleBtn').hidden = allMeetings.length > 0;
+  document.querySelector('.list-head').hidden = !allMeetings.length;
   $('meetingList').innerHTML = list.map((m) => {
     const hit = q && !norm(m.title).includes(q)
       ? snippet(m.segments.map((s) => s.text).join(' ') + ' ' + (m.minutes || ''), q) : '';
